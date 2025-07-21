@@ -7,59 +7,49 @@ import '../models/mtg_card.dart';
 class SimpleSearchService {
   static const String _baseUrl = 'https://api.scryfall.com';
 
-  /// Busca uma carta por nome com múltiplas estratégias
+  /// Busca uma carta por nome com estratégias inteligentes
   Future<MTGCard?> searchCardByName(String cardName) async {
     try {
       print('Buscando carta: "$cardName"');
 
       final cleanName = _cleanCardName(cardName);
 
-      // Lista de variações para tentar
-      List<String> variations = [cleanName];
-
-      // Adiciona variações sem acentos
-      final withoutAccents = _removeAccents(cleanName);
-      if (withoutAccents != cleanName) {
-        variations.add(withoutAccents);
+      // Estratégia 1: Busca fuzzy direta (mais eficiente)
+      final fuzzyCard = await _searchFuzzy(cleanName);
+      if (fuzzyCard != null) {
+        print('Carta encontrada (fuzzy): ${fuzzyCard.name}');
+        return fuzzyCard;
       }
 
-      // Adiciona variações com correções comuns
-      final corrected = _correctCommonErrors(cleanName);
-      if (corrected != cleanName) {
-        variations.add(corrected);
+      // Estratégia 2: Busca exata
+      final exactCard = await _searchExact(cleanName);
+      if (exactCard != null) {
+        print('Carta encontrada (exata): ${exactCard.name}');
+        return exactCard;
       }
 
-      // Correções específicas para cartas conhecidas
-      final specificCorrections = _getSpecificCorrections(cleanName);
-      variations.addAll(specificCorrections);
+      // Estratégia 3: Busca com variações de limpeza
+      final variations = _generateSearchVariations(cleanName);
 
-      print('Tentando variações: $variations');
-
-      // Tenta cada variação
       for (final variation in variations) {
-        // Estratégia 1: Busca exata
-        final exactCard = await _searchExact(variation);
-        if (exactCard != null) {
-          print('Carta encontrada (exata): ${exactCard.name}');
-          return exactCard;
-        }
-
-        // Estratégia 2: Busca fuzzy
-        final fuzzyCard = await _searchFuzzy(variation);
-        if (fuzzyCard != null) {
-          print('Carta encontrada (fuzzy): ${fuzzyCard.name}');
-          return fuzzyCard;
+        final card = await _searchFuzzy(variation);
+        if (card != null) {
+          print('Carta encontrada (variação): ${card.name}');
+          return card;
         }
       }
 
-      // Estratégia 3: Busca por autocomplete
+      // Estratégia 4: Busca por autocomplete e tenta as melhores sugestões
       final suggestions = await _getAutocompleteSuggestions(cleanName);
       if (suggestions.isNotEmpty) {
-        // Tenta a primeira sugestão
-        final firstSuggestion = await _searchExact(suggestions.first);
-        if (firstSuggestion != null) {
-          print('Carta encontrada (autocomplete): ${firstSuggestion.name}');
-          return firstSuggestion;
+        // Tenta as primeiras 3 sugestões
+        for (int i = 0; i < 3 && i < suggestions.length; i++) {
+          final suggestion = suggestions[i];
+          final card = await _searchExact(suggestion);
+          if (card != null) {
+            print('Carta encontrada (autocomplete): ${card.name}');
+            return card;
+          }
         }
       }
 
@@ -69,6 +59,33 @@ class SimpleSearchService {
       print('Erro ao buscar carta: $e');
       return null;
     }
+  }
+
+  /// Gera variações de busca baseadas em limpeza e correções comuns
+  List<String> _generateSearchVariations(String text) {
+    List<String> variations = [];
+
+    // Variação sem acentos
+    final withoutAccents = _removeAccents(text);
+    if (withoutAccents != text) {
+      variations.add(withoutAccents);
+    }
+
+    // Variação com correções de OCR comuns
+    final ocrCorrected = _correctOCRCommonErrors(text);
+    if (ocrCorrected != text) {
+      variations.add(ocrCorrected);
+    }
+
+    // Variação combinada (sem acentos + correções OCR)
+    if (withoutAccents != text) {
+      final combined = _correctOCRCommonErrors(withoutAccents);
+      if (combined != withoutAccents) {
+        variations.add(combined);
+      }
+    }
+
+    return variations;
   }
 
   /// Busca uma carta por collector number e set
@@ -131,7 +148,9 @@ class SimpleSearchService {
   Future<MTGCard?> _searchExact(String cardName) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/cards/named?exact=$cardName'),
+        Uri.parse(
+          '$_baseUrl/cards/named?exact=${Uri.encodeComponent(cardName)}',
+        ),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -149,7 +168,9 @@ class SimpleSearchService {
   Future<MTGCard?> _searchFuzzy(String cardName) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/cards/named?fuzzy=$cardName'),
+        Uri.parse(
+          '$_baseUrl/cards/named?fuzzy=${Uri.encodeComponent(cardName)}',
+        ),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -167,7 +188,9 @@ class SimpleSearchService {
   Future<List<String>> _getAutocompleteSuggestions(String query) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/cards/autocomplete?q=$query'),
+        Uri.parse(
+          '$_baseUrl/cards/autocomplete?q=${Uri.encodeComponent(query)}',
+        ),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -262,9 +285,13 @@ class SimpleSearchService {
         .replaceAll('ñ', 'n');
   }
 
-  /// Corrige erros comuns do OCR
-  String _correctCommonErrors(String text) {
-    return text
+  /// Corrige erros comuns do OCR de forma mais inteligente
+  String _correctOCRCommonErrors(String text) {
+    // Aplica correções apenas quando fazem sentido no contexto
+    String result = text;
+
+    // Correções que podem ser aplicadas globalmente
+    result = result
         .replaceAll('0', 'O') // Zero confundido com O
         .replaceAll('1', 'I') // Um confundido com I
         .replaceAll('5', 'S') // Cinco confundido com S
@@ -273,45 +300,9 @@ class SimpleSearchService {
         .replaceAll('rn', 'm') // RN confundido com M
         .replaceAll('cl', 'd') // CL confundido com D
         .replaceAll('vv', 'w') // VV confundido com W
-        .replaceAll('nn', 'm') // NN confundido com M
-        .replaceAll('ç', 'c') // ç confundido com c
-        .replaceAll('ã', 'a') // ã confundido com a
-        .replaceAll('õ', 'o') // õ confundido com o
-        .replaceAll('á', 'a') // á confundido com a
-        .replaceAll('é', 'e') // é confundido com e
-        .replaceAll('í', 'i') // í confundido com i
-        .replaceAll('ó', 'o') // ó confundido com o
-        .replaceAll('ú', 'u') // ú confundido com u
-        .replaceAll('à', 'a') // à confundido com a
-        .replaceAll('è', 'e') // è confundido com e
-        .replaceAll('ì', 'i') // ì confundido com i
-        .replaceAll('ò', 'o') // ò confundido com o
-        .replaceAll('ù', 'u'); // ù confundido com u
-  }
+        .replaceAll('nn', 'm'); // NN confundido com M
 
-  /// Obtém correções específicas para cartas conhecidas
-  List<String> _getSpecificCorrections(String text) {
-    List<String> corrections = [];
-
-    // Correções específicas para cartas conhecidas
-    Map<String, String> specificCorrections = {
-      'Ossifica o': 'Ossificação',
-      'Ossificacao': 'Ossificação',
-      'Ossificacao': 'Ossificação',
-      'Ilha': 'Island',
-      'Montanha': 'Mountain',
-      'Pântano': 'Swamp',
-      'Planície': 'Plains',
-      'Floresta': 'Forest',
-    };
-
-    for (final entry in specificCorrections.entries) {
-      if (text.toLowerCase().contains(entry.key.toLowerCase())) {
-        corrections.add(entry.value);
-      }
-    }
-
-    return corrections;
+    return result;
   }
 
   /// Verifica se o serviço está inicializado (sempre true para este serviço)

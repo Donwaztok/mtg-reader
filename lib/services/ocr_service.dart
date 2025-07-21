@@ -429,7 +429,7 @@ class OCRService {
       '5': 'S', // Cinco confundido com S
       '8': 'B', // Oito confundido com B
       'G': '6', // G confundido com 6
-      'l': 'I', // L minúsculo confundido com I
+      // 'l': 'I', // L minúsculo confundido com I - REMOVIDO para não piorar nomes corretos
       'rn': 'm', // RN confundido com M
       'cl': 'd', // CL confundido com D
       'vv': 'w', // VV confundido com W
@@ -457,23 +457,18 @@ class OCRService {
       'é': 'e', // é confundido com e
       'í': 'i', // í confundido com i
       'ó': 'o', // ó confundido com o
-      'ú': 'u', // ú confundido com u
-      'à': 'a', // à confundido com a
-      'è': 'e', // è confundido com e
-      'ì': 'i', // ì confundido com i
-      'ò': 'o', // ò confundido com o
-      'ç': 'c', // ç confundido com c
-      'ã': 'a', // ã confundido com a
-      'õ': 'o', // õ confundido com o
-      'á': 'a', // á confundido com a
-      'é': 'e', // é confundido com e
-      'í': 'i', // í confundido com i
-      'ó': 'o', // ó confundido com o
     };
 
-    // Aplica correções
-    for (final correction in ocrCorrections.entries) {
-      improved = improved.replaceAll(correction.key, correction.value);
+    // Aplica correções apenas se o nome original parece ter problemas
+    bool needsCorrection = _needsOcrCorrection(cardName);
+
+    if (needsCorrection) {
+      for (final correction in ocrCorrections.entries) {
+        improved = improved.replaceAll(correction.key, correction.value);
+      }
+    } else {
+      // Se o nome parece correto, não aplica correções
+      improved = cardName;
     }
 
     // Remove caracteres duplicados comuns do OCR
@@ -487,6 +482,55 @@ class OCRService {
     improved = improved.replaceAll(RegExp(r'[^\w\s\-\.]'), ' ');
 
     return improved.trim();
+  }
+
+  /// Verifica se o nome da carta precisa de correções do OCR
+  bool _needsOcrCorrection(String cardName) {
+    // Se o nome contém caracteres que são claramente erros do OCR
+    List<String> ocrErrorPatterns = [
+      '0',
+      '1',
+      '5',
+      '8',
+      'G',
+      'rn',
+      'cl',
+      'vv',
+      'nn',
+      '|',
+      '!',
+      '[',
+      ']',
+      '`',
+      '~',
+      '^',
+      '@',
+      '#',
+      '\$',
+      '%',
+      '&',
+      '*',
+      '+',
+      '=',
+      '?',
+    ];
+
+    String lowerName = cardName.toLowerCase();
+
+    // Verifica se contém padrões de erro do OCR
+    for (String pattern in ocrErrorPatterns) {
+      if (lowerName.contains(pattern)) {
+        return true;
+      }
+    }
+
+    // Se o nome parece estar bem formatado (contém espaços e letras normais)
+    // e não tem caracteres estranhos, provavelmente não precisa de correção
+    if (RegExp(r'^[a-zA-Z\s\-\.]+$').hasMatch(cardName)) {
+      return false;
+    }
+
+    return true;
   }
 
   /// Verifica se o texto parece ser um nome de carta (melhorado)
