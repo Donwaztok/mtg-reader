@@ -145,6 +145,30 @@ class CameraService {
     return _controller?.value.flashMode ?? FlashMode.off;
   }
 
+  /// Pausa a câmera para liberar recursos
+  Future<void> pauseCamera() async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      try {
+        await _controller!.pausePreview();
+        print('Câmera pausada para liberar recursos');
+      } catch (e) {
+        print('Erro ao pausar câmera: $e');
+      }
+    }
+  }
+
+  /// Resume a câmera após pausa
+  Future<void> resumeCamera() async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      try {
+        await _controller!.resumePreview();
+        print('Câmera resumida');
+      } catch (e) {
+        print('Erro ao resumir câmera: $e');
+      }
+    }
+  }
+
   /// Libera recursos da câmera
   Future<void> dispose() async {
     await _controller?.dispose();

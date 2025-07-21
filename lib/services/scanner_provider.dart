@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
@@ -93,28 +95,43 @@ class ScannerProvider extends ChangeNotifier {
       } else {
         print('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
 
-        // Fallback: OCR tradicional
-        _recognizedText = await _ocrService.recognizeTextFromBytes(imageBytes);
+        // Sistema de retry para extrair todas as informações (uma única captura)
+        _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 3);
 
-        print('Texto reconhecido: $_recognizedText'); // Debug
-
-        if (_recognizedText.isEmpty) {
-          throw Exception(
-            'Nenhum texto reconhecido na imagem. Tente melhorar a iluminação ou posicionamento da carta.',
+        // Se não conseguiu extrair informações suficientes, tenta uma nova captura
+        int infoScore = _calculateInfoScore(_extractedInfo);
+        if (infoScore < 2) {
+          print(
+            '⚠️ Informações insuficientes (score: $infoScore), tentando nova captura...',
           );
+
+          // Libera recursos da câmera antes de nova captura
+          await _cameraService.pauseCamera();
+          await Future.delayed(Duration(milliseconds: 1000));
+          await _cameraService.resumeCamera();
+
+          // Nova captura
+          final newImageBytes = await _cameraService.takePicture();
+          if (newImageBytes != null) {
+            Map<String, String> newExtractedInfo =
+                await _extractCardInfoWithRetry(newImageBytes, 2);
+            int newScore = _calculateInfoScore(newExtractedInfo);
+
+            if (newScore > infoScore) {
+              _extractedInfo = newExtractedInfo;
+              print('✅ Nova captura melhorou o resultado! Score: $newScore');
+            }
+          }
         }
 
-        // Extrai informações específicas da carta
-        _extractedInfo = await _ocrService.extractCardInfo(_recognizedText);
-
         // Log detalhado das informações extraídas
-        print('=== INFORMAÇÕES EXTRAÍDAS ===');
+        print('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
         print('Nome: ${_extractedInfo['name']}');
         print('Set Code: ${_extractedInfo['setCode']}');
         print('Collector Number: ${_extractedInfo['collectorNumber']}');
         print('Language: ${_extractedInfo['language']}');
         print('Type Line: ${_extractedInfo['typeLine']}');
-        print('=============================');
+        print('=====================================');
 
         // Estratégia de busca otimizada usando dados bulk
         String? setCode = _extractedInfo['setCode'];
@@ -285,6 +302,96 @@ class ScannerProvider extends ChangeNotifier {
   /// Obtém o modo atual do flash
   bool get isFlashOn {
     return _cameraService.flashMode != FlashMode.off;
+  }
+
+  /// Sistema de retry para extrair informações da carta (otimizado para evitar buffer overflow)
+  Future<Map<String, String>> _extractCardInfoWithRetry(
+    Uint8List imageBytes,
+    int maxRetries,
+  ) async {
+    Map<String, String> bestResult = {};
+    int bestScore = 0;
+
+    print(
+      '🔄 Iniciando sistema de retry otimizado (máximo $maxRetries tentativas)...',
+    );
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      print('📸 Tentativa $attempt/$maxRetries...');
+
+      try {
+        // Reconhece texto da imagem
+        List<String> recognizedText = await _ocrService.recognizeTextFromBytes(
+          imageBytes,
+        );
+
+        if (recognizedText.isEmpty) {
+          print('❌ Tentativa $attempt: Nenhum texto reconhecido');
+          continue;
+        }
+
+        print('📝 Tentativa $attempt - Texto reconhecido: $recognizedText');
+
+        // Extrai informações da carta
+        Map<String, String> extractedInfo = await _ocrService.extractCardInfo(
+          recognizedText,
+        );
+
+        // Calcula score da tentativa atual
+        int currentScore = _calculateInfoScore(extractedInfo);
+
+        print('📊 Tentativa $attempt - Score: $currentScore');
+        print('📊 Tentativa $attempt - Informações: $extractedInfo');
+
+        // Se esta tentativa tem mais informações, atualiza o melhor resultado
+        if (currentScore > bestScore) {
+          bestScore = currentScore;
+          bestResult = Map.from(extractedInfo);
+          print(
+            '✅ Tentativa $attempt - Novo melhor resultado! Score: $bestScore',
+          );
+        }
+
+        // Se conseguimos informações suficientes, podemos parar
+        if (currentScore >= 3) {
+          print(
+            '🎯 Tentativa $attempt - Informações suficientes encontradas! Parando retry.',
+          );
+          break;
+        }
+
+        // Pausa mais longa entre tentativas para evitar buffer overflow
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 1000));
+        }
+      } catch (e) {
+        print('❌ Tentativa $attempt - Erro: $e');
+        // Pausa extra em caso de erro
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 1500));
+        }
+      }
+    }
+
+    print('🏁 Sistema de retry finalizado. Melhor score: $bestScore');
+    print('🏁 Melhor resultado: $bestResult');
+
+    return bestResult;
+  }
+
+  /// Calcula score baseado na quantidade de informações extraídas
+  int _calculateInfoScore(Map<String, String> info) {
+    int score = 0;
+
+    if (info.containsKey('name') && info['name']!.isNotEmpty) score++;
+    if (info.containsKey('setCode') && info['setCode']!.isNotEmpty) score++;
+    if (info.containsKey('collectorNumber') &&
+        info['collectorNumber']!.isNotEmpty)
+      score++;
+    if (info.containsKey('language') && info['language']!.isNotEmpty) score++;
+    if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty) score++;
+
+    return score;
   }
 
   /// Libera recursos
