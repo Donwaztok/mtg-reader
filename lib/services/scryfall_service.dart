@@ -287,18 +287,21 @@ class ScryfallService {
   Future<MTGCard?> searchCardInBulkData(
     String cardName,
     String? setCode,
-    String? collectorNumber,
-  ) async {
+    String? collectorNumber, {
+    String? language,
+  }) async {
     try {
       print(
-        'Buscando carta em dados bulk: $cardName (set: $setCode, collector: $collectorNumber)',
+        'Buscando carta em dados bulk: $cardName (set: $setCode, collector: $collectorNumber, lang: $language)',
       ); // Debug
 
       // Primeira tentativa: busca por collector number + set (mais preciso)
       if (setCode != null && collectorNumber != null) {
-        final card = await _searchService.searchCardByCollectorNumber(
+        final card = await _searchService.searchCardInBulkData(
+          cardName,
           setCode,
           collectorNumber,
+          language: language,
         );
         if (card != null) {
           print('Carta encontrada por collector number: ${card.name}'); // Debug
@@ -308,9 +311,11 @@ class ScryfallService {
 
       // Segunda tentativa: busca por nome + set
       if (setCode != null) {
-        final card = await _searchService.searchCardByNameAndSet(
+        final card = await _searchService.searchCardInBulkData(
           cardName,
           setCode,
+          collectorNumber,
+          language: language,
         );
         if (card != null) {
           print('Carta encontrada por nome e set: ${card.name}'); // Debug

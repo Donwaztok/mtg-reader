@@ -107,18 +107,27 @@ class ScannerProvider extends ChangeNotifier {
         // Extrai informações específicas da carta
         _extractedInfo = await _ocrService.extractCardInfo(_recognizedText);
 
-        print('Informações extraídas: $_extractedInfo'); // Debug
+        // Log detalhado das informações extraídas
+        print('=== INFORMAÇÕES EXTRAÍDAS ===');
+        print('Nome: ${_extractedInfo['name']}');
+        print('Set Code: ${_extractedInfo['setCode']}');
+        print('Collector Number: ${_extractedInfo['collectorNumber']}');
+        print('Language: ${_extractedInfo['language']}');
+        print('Type Line: ${_extractedInfo['typeLine']}');
+        print('=============================');
 
         // Estratégia de busca otimizada usando dados bulk
         String? setCode = _extractedInfo['setCode'];
         String? collectorNumber = _extractedInfo['collectorNumber'];
         String? cardName = _extractedInfo['name'];
+        String? language = _extractedInfo['language'];
 
         // Busca usando dados bulk (mais eficiente e inclui cartas em português)
         _scannedCard = await _scryfallService.searchCardInBulkData(
           cardName ?? '',
           setCode,
           collectorNumber,
+          language: language,
         );
 
         if (_scannedCard != null) {

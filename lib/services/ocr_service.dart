@@ -247,7 +247,39 @@ class OCRService {
       }
     }
 
-    print('Informações extraídas: $cardInfo'); // Debug
+    // Log final resumido das informações extraídas
+    print('=== RESUMO DAS INFORMAÇÕES EXTRAÍDAS ===');
+    if (cardInfo.containsKey('name')) {
+      print('✅ Nome: ${cardInfo['name']}');
+    } else {
+      print('❌ Nome: Não detectado');
+    }
+
+    if (cardInfo.containsKey('setCode')) {
+      print('✅ Set Code: ${cardInfo['setCode']}');
+    } else {
+      print('❌ Set Code: Não detectado');
+    }
+
+    if (cardInfo.containsKey('collectorNumber')) {
+      print('✅ Collector Number: ${cardInfo['collectorNumber']}');
+    } else {
+      print('❌ Collector Number: Não detectado');
+    }
+
+    if (cardInfo.containsKey('language')) {
+      print('✅ Language: ${cardInfo['language']}');
+    } else {
+      print('❌ Language: Não detectado');
+    }
+
+    if (cardInfo.containsKey('typeLine')) {
+      print('✅ Type Line: ${cardInfo['typeLine']}');
+    } else {
+      print('❌ Type Line: Não detectado');
+    }
+    print('==========================================');
+
     return cardInfo;
   }
 
@@ -389,32 +421,34 @@ class OCRService {
 
   /// Extrai número do coletor de um texto que pode conter outras informações
   String? _extractCollectorNumber(String text) {
-    // Procura por padrões como "026/271 U ONE • PT NINO VECIA" onde 026 é o número do coletor
-    RegExp collectorPattern = RegExp(r'(\d+)/(\d+)');
-    var match = collectorPattern.firstMatch(text);
-    if (match != null && match.groupCount >= 1) {
-      String? collectorNumber = match.group(1);
+    // Padrão 1: 026/271 U (formato: número/número letra)
+    RegExp collectorPattern1 = RegExp(r'(\d+)/(\d+)\s*[A-Z]?');
+    var match1 = collectorPattern1.firstMatch(text);
+    if (match1 != null) {
+      String? collectorNumber = match1.group(1);
       if (collectorNumber != null) {
         return collectorNumber;
       }
     }
 
-    // Procura por padrões como "255/264 L" onde 255 é o número do coletor
-    RegExp simplePattern = RegExp(r'(\d+)/(\d+)\s*([A-Z]{1,3})?');
-    var simpleMatch = simplePattern.firstMatch(text);
-    if (simpleMatch != null && simpleMatch.groupCount >= 2) {
-      String? collectorNumber = simpleMatch.group(1);
+    // Padrão 2: U 026 (formato: letra número)
+    RegExp collectorPattern2 = RegExp(r'[A-Z]\s*(\d+)');
+    var match2 = collectorPattern2.firstMatch(text);
+    if (match2 != null) {
+      String? collectorNumber = match2.group(1);
       if (collectorNumber != null) {
         return collectorNumber;
       }
     }
 
-    // Procura por padrões específicos de collector number
-    // Formato: "026 271 ONE PT NING VECLA" ou similar
-    RegExp specificPattern = RegExp(r'(\d{1,3})\s+\d+\s+[A-Z]{3}');
-    var specificMatch = specificPattern.firstMatch(text);
-    if (specificMatch != null) {
-      return specificMatch.group(1);
+    // Padrão 3: 026 271 U (formato: número espaço número espaço letra - OCR com espaços)
+    RegExp collectorPattern3 = RegExp(r'(\d+)\s+\d+\s+[A-Z]');
+    var match3 = collectorPattern3.firstMatch(text);
+    if (match3 != null) {
+      String? collectorNumber = match3.group(1);
+      if (collectorNumber != null) {
+        return collectorNumber;
+      }
     }
 
     // Procura por números simples apenas se o texto for curto e parecer um collector number
@@ -755,16 +789,42 @@ class OCRService {
 
   /// Extrai informações completas de collector/set/language de um texto
   Map<String, String>? _extractCompleteInfo(String text) {
+    print('🔍 Analisando texto para extração completa: "$text"');
     Map<String, String> result = {};
 
-    // 1. Extrai collector number (formato: 026/271)
-    RegExp collectorPattern = RegExp(r'^(\d+)/(\d+)');
-    var collectorMatch = collectorPattern.firstMatch(text);
-    if (collectorMatch != null) {
-      String? collectorNumber = collectorMatch.group(1);
+    // 1. Extrai collector number (três formatos: 999/999 Z, Z 9999, ou 999 999 Z)
+    // Padrão 1: 026/271 U (formato: número/número letra)
+    RegExp collectorPattern1 = RegExp(r'^(\d+)/(\d+)\s*[A-Z]?');
+    var collectorMatch1 = collectorPattern1.firstMatch(text);
+
+    // Padrão 2: U 026 (formato: letra número)
+    RegExp collectorPattern2 = RegExp(r'^[A-Z]\s*(\d+)');
+    var collectorMatch2 = collectorPattern2.firstMatch(text);
+
+    // Padrão 3: 026 271 U (formato: número espaço número espaço letra - OCR com espaços)
+    RegExp collectorPattern3 = RegExp(r'^(\d+)\s+\d+\s+[A-Z]');
+    var collectorMatch3 = collectorPattern3.firstMatch(text);
+
+    if (collectorMatch1 != null) {
+      String? collectorNumber = collectorMatch1.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
+        print('📊 Collector Number extraído (padrão 1): $collectorNumber');
       }
+    } else if (collectorMatch2 != null) {
+      String? collectorNumber = collectorMatch2.group(1);
+      if (collectorNumber != null) {
+        result['collectorNumber'] = collectorNumber;
+        print('📊 Collector Number extraído (padrão 2): $collectorNumber');
+      }
+    } else if (collectorMatch3 != null) {
+      String? collectorNumber = collectorMatch3.group(1);
+      if (collectorNumber != null) {
+        result['collectorNumber'] = collectorNumber;
+        print('📊 Collector Number extraído (padrão 3): $collectorNumber');
+      }
+    } else {
+      print('❌ Collector Number não encontrado nos padrões esperados');
     }
 
     // 2. Extrai set code (primeiro código de 3 letras maiúsculas)
@@ -774,6 +834,9 @@ class OCRService {
       // Pega o primeiro código de 3 letras encontrado
       String setCode = setMatches.first.group(1)!;
       result['setCode'] = setCode;
+      print('🎴 Set Code extraído: $setCode');
+    } else {
+      print('❌ Set Code não encontrado');
     }
 
     // 3. Extrai language code (códigos de idioma válidos)
@@ -799,9 +862,22 @@ class OCRService {
         String language = match.group(1)!;
         if (validLanguages.contains(language)) {
           result['language'] = language;
+          print('🌍 Language Code extraído: $language');
           break;
         }
       }
+
+      if (!result.containsKey('language')) {
+        print('❌ Language Code válido não encontrado');
+      }
+    } else {
+      print('❌ Language Code não encontrado');
+    }
+
+    if (result.isNotEmpty) {
+      print('✅ Extração completa bem-sucedida: $result');
+    } else {
+      print('❌ Nenhuma informação extraída');
     }
 
     return result.isNotEmpty ? result : null;

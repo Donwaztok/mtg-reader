@@ -201,16 +201,32 @@ class SimpleSearchService {
   Future<MTGCard?> searchCardInBulkData(
     String cardName,
     String? setCode,
-    String? collectorNumber,
-  ) async {
+    String? collectorNumber, {
+    String? language,
+  }) async {
     try {
       print(
-        'Buscando carta: $cardName (set: $setCode, collector: $collectorNumber)',
+        'Buscando carta: $cardName (set: $setCode, collector: $collectorNumber, lang: $language)',
       );
 
       // Estratégia 1: Collector number + set (mais preciso)
       if (setCode != null && collectorNumber != null) {
-        // Tenta primeiro em português
+        // Tenta primeiro com a linguagem detectada
+        if (language != null) {
+          var card = await searchCardByCollectorNumber(
+            setCode,
+            collectorNumber,
+            language: language.toLowerCase(),
+          );
+          if (card != null) {
+            print(
+              'Carta encontrada por collector number ($language): ${card.name}',
+            );
+            return card;
+          }
+        }
+
+        // Tenta em português se não foi detectado
         var card = await searchCardByCollectorNumber(
           setCode,
           collectorNumber,
@@ -221,7 +237,7 @@ class SimpleSearchService {
           return card;
         }
 
-        // Se não encontrar em português, tenta sem especificar idioma
+        // Se não encontrar, tenta sem especificar idioma
         card = await searchCardByCollectorNumber(setCode, collectorNumber);
         if (card != null) {
           print('Carta encontrada por collector number: ${card.name}');
@@ -231,7 +247,20 @@ class SimpleSearchService {
 
       // Estratégia 2: Nome + set
       if (setCode != null) {
-        // Tenta primeiro em português
+        // Tenta primeiro com a linguagem detectada
+        if (language != null) {
+          var card = await searchCardByNameAndSet(
+            cardName,
+            setCode,
+            language: language.toLowerCase(),
+          );
+          if (card != null) {
+            print('Carta encontrada por nome e set ($language): ${card.name}');
+            return card;
+          }
+        }
+
+        // Tenta em português se não foi detectado
         var card = await searchCardByNameAndSet(
           cardName,
           setCode,
@@ -242,7 +271,7 @@ class SimpleSearchService {
           return card;
         }
 
-        // Se não encontrar em português, tenta sem especificar idioma
+        // Se não encontrar, tenta sem especificar idioma
         card = await searchCardByNameAndSet(cardName, setCode);
         if (card != null) {
           print('Carta encontrada por nome e set: ${card.name}');
