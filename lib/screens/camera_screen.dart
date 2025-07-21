@@ -243,6 +243,13 @@ class _CameraScreenState extends State<CameraScreen> {
                   onTap: () => provider.switchCamera(),
                 ),
 
+                // Botão de reinicialização da câmera
+                _buildSecondaryButton(
+                  icon: Icons.refresh,
+                  label: 'Reiniciar',
+                  onTap: () => _reinitializeCamera(provider),
+                ),
+
                 // Botão de configurações
                 _buildSecondaryButton(
                   icon: Icons.settings,
@@ -356,5 +363,15 @@ class _CameraScreenState extends State<CameraScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _reinitializeCamera(ScannerProvider provider) async {
+    final success = await provider.reinitializeCamera();
+
+    if (!success && mounted) {
+      _showErrorDialog(
+        'Falha ao reinicializar a câmera. Tente fechar e abrir o app novamente.',
+      );
+    }
   }
 }

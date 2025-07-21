@@ -62,46 +62,40 @@ class CameraService {
 
   /// Captura uma imagem com gerenciamento de buffer
   Future<Uint8List?> takePicture() async {
-    if (!_isInitialized || _controller == null) {
-      print('Câmera não inicializada');
+    if (!isReadyToCapture) {
+      print('Câmera não está pronta para capturar');
       return null;
     }
 
     try {
-      // Pausa o preview antes de capturar para liberar buffers
-      await _controller!.pausePreview();
+      print('Iniciando captura de imagem...');
 
-      // Pequena pausa para garantir que os buffers sejam liberados
-      await Future.delayed(Duration(milliseconds: 200));
-
+      // Captura a imagem sem pausar o preview (mais estável)
       final XFile image = await _controller!.takePicture();
-
-      // Resume o preview imediatamente após a captura
-      await _controller!.resumePreview();
+      print('Imagem capturada com sucesso: ${image.path}');
 
       final File imageFile = File(image.path);
-      return await imageFile.readAsBytes();
+      final imageBytes = await imageFile.readAsBytes();
+      print('Imagem carregada: ${imageBytes.length} bytes');
+
+      return imageBytes;
     } catch (e) {
       print('Erro ao capturar imagem: $e');
-      // Tenta resumir o preview mesmo em caso de erro
-      try {
-        await _controller!.resumePreview();
-      } catch (resumeError) {
-        print('Erro ao resumir preview: $resumeError');
-      }
       return null;
     }
   }
 
   /// Captura uma imagem e salva em arquivo
   Future<File?> takePictureAndSave() async {
-    if (!_isInitialized || _controller == null) {
-      print('Câmera não inicializada');
+    if (!isReadyToCapture) {
+      print('Câmera não está pronta para capturar');
       return null;
     }
 
     try {
+      print('Iniciando captura de imagem para arquivo...');
       final XFile image = await _controller!.takePicture();
+      print('Imagem capturada e salva: ${image.path}');
       return File(image.path);
     } catch (e) {
       print('Erro ao capturar imagem: $e');
@@ -114,6 +108,14 @@ class CameraService {
 
   /// Verifica se a câmera está inicializada
   bool get isInitialized => _isInitialized;
+
+  /// Verifica se a câmera está pronta para capturar
+  bool get isReadyToCapture {
+    return _isInitialized &&
+        _controller != null &&
+        _controller!.value.isInitialized &&
+        !_controller!.value.isTakingPicture;
+  }
 
   /// Obtém as câmeras disponíveis
   List<CameraDescription>? get cameras => _cameras;
@@ -197,7 +199,31 @@ class CameraService {
 
   /// Libera recursos da câmera
   Future<void> dispose() async {
-    await _controller?.dispose();
-    _isInitialized = false;
+    try {
+      if (_controller != null) {
+        print('Liberando recursos da câmera...');
+        await _controller!.dispose();
+        _controller = null;
+      }
+      _isInitialized = false;
+      print('Recursos da câmera liberados com sucesso');
+    } catch (e) {
+      print('Erro ao liberar recursos da câmera: $e');
+    }
+  }
+
+  /// Reinicializa a câmera (útil quando ela trava)
+  Future<bool> reinitialize() async {
+    try {
+      print('Reinicializando câmera...');
+      await dispose();
+      await Future.delayed(
+        Duration(milliseconds: 500),
+      ); // Pausa para liberar recursos
+      return await initialize();
+    } catch (e) {
+      print('Erro ao reinicializar câmera: $e');
+      return false;
+    }
   }
 }

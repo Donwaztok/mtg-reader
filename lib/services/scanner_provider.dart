@@ -68,6 +68,14 @@ class ScannerProvider extends ChangeNotifier {
       return;
     }
 
+    // Verifica se a câmera está pronta para capturar
+    if (!_cameraService.isReadyToCapture) {
+      _errorMessage =
+          'Câmera não está pronta para capturar. Aguarde um momento e tente novamente.';
+      notifyListeners();
+      return;
+    }
+
     _isScanning = true;
     _isProcessing = true;
     _errorMessage = null;
@@ -271,6 +279,33 @@ class ScannerProvider extends ChangeNotifier {
       await _cameraService.toggleFlash();
       notifyListeners();
     }
+  }
+
+  /// Reinicializa a câmera (útil quando ela trava)
+  Future<bool> reinitializeCamera() async {
+    _isProcessing = true;
+    notifyListeners();
+
+    try {
+      print('Reinicializando câmera...'); // Debug
+      _isCameraInitialized = await _cameraService.reinitialize();
+
+      if (_isCameraInitialized) {
+        _errorMessage = null;
+        print('Câmera reinicializada com sucesso'); // Debug
+      } else {
+        _errorMessage = 'Falha ao reinicializar câmera';
+        print('Falha ao reinicializar câmera'); // Debug
+      }
+    } catch (e) {
+      _errorMessage = 'Erro ao reinicializar câmera: $e';
+      _isCameraInitialized = false;
+      print('Erro na reinicialização da câmera: $e'); // Debug
+    }
+
+    _isProcessing = false;
+    notifyListeners();
+    return _isCameraInitialized;
   }
 
   /// Obtém o modo atual do flash
