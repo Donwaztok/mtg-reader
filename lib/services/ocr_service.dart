@@ -149,6 +149,33 @@ class OCRService {
         continue;
       }
 
+      // Tenta extrair informações completas de collector/set/language de um texto
+      Map<String, String>? extractedInfo = _extractCompleteInfo(cleanText);
+      if (extractedInfo != null) {
+        if (extractedInfo.containsKey('collectorNumber') &&
+            !cardInfo.containsKey('collectorNumber')) {
+          cardInfo['collectorNumber'] = extractedInfo['collectorNumber']!;
+          print(
+            'Número do coletor extraído: ${extractedInfo['collectorNumber']} de "$cleanText"',
+          );
+        }
+        if (extractedInfo.containsKey('setCode') &&
+            !cardInfo.containsKey('setCode')) {
+          cardInfo['setCode'] = extractedInfo['setCode']!;
+          print(
+            'Código do set extraído: ${extractedInfo['setCode']} de "$cleanText"',
+          );
+        }
+        if (extractedInfo.containsKey('language') &&
+            !cardInfo.containsKey('language')) {
+          cardInfo['language'] = extractedInfo['language']!;
+          print(
+            'Linguagem extraída: ${extractedInfo['language']} de "$cleanText"',
+          );
+        }
+        continue;
+      }
+
       // Tenta extrair número do coletor de textos que contêm outras informações
       String? extractedCollectorNumber = _extractCollectorNumber(cleanText);
       if (extractedCollectorNumber != null &&
@@ -724,6 +751,60 @@ class OCRService {
       print('Stack trace: ${StackTrace.current}');
       return imageBytes;
     }
+  }
+
+  /// Extrai informações completas de collector/set/language de um texto
+  Map<String, String>? _extractCompleteInfo(String text) {
+    Map<String, String> result = {};
+
+    // 1. Extrai collector number (formato: 026/271)
+    RegExp collectorPattern = RegExp(r'^(\d+)/(\d+)');
+    var collectorMatch = collectorPattern.firstMatch(text);
+    if (collectorMatch != null) {
+      String? collectorNumber = collectorMatch.group(1);
+      if (collectorNumber != null) {
+        result['collectorNumber'] = collectorNumber;
+      }
+    }
+
+    // 2. Extrai set code (primeiro código de 3 letras maiúsculas)
+    RegExp setPattern = RegExp(r'\b([A-Z]{3})\b');
+    var setMatches = setPattern.allMatches(text);
+    if (setMatches.isNotEmpty) {
+      // Pega o primeiro código de 3 letras encontrado
+      String setCode = setMatches.first.group(1)!;
+      result['setCode'] = setCode;
+    }
+
+    // 3. Extrai language code (códigos de idioma válidos)
+    RegExp langPattern = RegExp(r'\b([A-Z]{2})\b');
+    var langMatches = langPattern.allMatches(text);
+    if (langMatches.isNotEmpty) {
+      // Lista de códigos de idioma válidos do MTG
+      List<String> validLanguages = [
+        'PT',
+        'EN',
+        'ES',
+        'FR',
+        'DE',
+        'IT',
+        'JA',
+        'KO',
+        'RU',
+        'ZH',
+      ];
+
+      // Procura por um código de idioma válido
+      for (var match in langMatches) {
+        String language = match.group(1)!;
+        if (validLanguages.contains(language)) {
+          result['language'] = language;
+          break;
+        }
+      }
+    }
+
+    return result.isNotEmpty ? result : null;
   }
 
   /// Libera recursos do OCR
