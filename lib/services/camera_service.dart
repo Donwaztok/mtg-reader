@@ -42,6 +42,16 @@ class CameraService {
       );
 
       await _controller!.initialize();
+
+      // Configura o modo de preview para reduzir uso de buffers
+      if (Platform.isAndroid) {
+        try {
+          await _controller!.setExposureMode(ExposureMode.auto);
+          await _controller!.setFocusMode(FocusMode.auto);
+        } catch (e) {
+          print('Erro ao configurar câmera: $e');
+        }
+      }
       _isInitialized = true;
       return true;
     } catch (e) {
@@ -50,7 +60,7 @@ class CameraService {
     }
   }
 
-  /// Captura uma imagem
+  /// Captura uma imagem com gerenciamento de buffer
   Future<Uint8List?> takePicture() async {
     if (!_isInitialized || _controller == null) {
       print('Câmera não inicializada');
@@ -58,11 +68,27 @@ class CameraService {
     }
 
     try {
+      // Pausa o preview antes de capturar para liberar buffers
+      await _controller!.pausePreview();
+
+      // Pequena pausa para garantir que os buffers sejam liberados
+      await Future.delayed(Duration(milliseconds: 200));
+
       final XFile image = await _controller!.takePicture();
+
+      // Resume o preview imediatamente após a captura
+      await _controller!.resumePreview();
+
       final File imageFile = File(image.path);
       return await imageFile.readAsBytes();
     } catch (e) {
       print('Erro ao capturar imagem: $e');
+      // Tenta resumir o preview mesmo em caso de erro
+      try {
+        await _controller!.resumePreview();
+      } catch (resumeError) {
+        print('Erro ao resumir preview: $resumeError');
+      }
       return null;
     }
   }

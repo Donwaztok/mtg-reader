@@ -96,33 +96,7 @@ class ScannerProvider extends ChangeNotifier {
         print('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
 
         // Sistema de retry para extrair todas as informações (uma única captura)
-        _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 3);
-
-        // Se não conseguiu extrair informações suficientes, tenta uma nova captura
-        int infoScore = _calculateInfoScore(_extractedInfo);
-        if (infoScore < 2) {
-          print(
-            '⚠️ Informações insuficientes (score: $infoScore), tentando nova captura...',
-          );
-
-          // Libera recursos da câmera antes de nova captura
-          await _cameraService.pauseCamera();
-          await Future.delayed(Duration(milliseconds: 1000));
-          await _cameraService.resumeCamera();
-
-          // Nova captura
-          final newImageBytes = await _cameraService.takePicture();
-          if (newImageBytes != null) {
-            Map<String, String> newExtractedInfo =
-                await _extractCardInfoWithRetry(newImageBytes, 2);
-            int newScore = _calculateInfoScore(newExtractedInfo);
-
-            if (newScore > infoScore) {
-              _extractedInfo = newExtractedInfo;
-              print('✅ Nova captura melhorou o resultado! Score: $newScore');
-            }
-          }
-        }
+        _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 2);
 
         // Log detalhado das informações extraídas
         print('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
@@ -353,22 +327,22 @@ class ScannerProvider extends ChangeNotifier {
         }
 
         // Se conseguimos informações suficientes, podemos parar
-        if (currentScore >= 3) {
+        if (currentScore >= 2) {
           print(
             '🎯 Tentativa $attempt - Informações suficientes encontradas! Parando retry.',
           );
           break;
         }
 
-        // Pausa mais longa entre tentativas para evitar buffer overflow
+        // Pausa entre tentativas
         if (attempt < maxRetries) {
-          await Future.delayed(Duration(milliseconds: 1000));
+          await Future.delayed(Duration(milliseconds: 500));
         }
       } catch (e) {
         print('❌ Tentativa $attempt - Erro: $e');
         // Pausa extra em caso de erro
         if (attempt < maxRetries) {
-          await Future.delayed(Duration(milliseconds: 1500));
+          await Future.delayed(Duration(milliseconds: 1000));
         }
       }
     }
