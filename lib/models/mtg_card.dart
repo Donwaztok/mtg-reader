@@ -43,12 +43,16 @@ class MTGCard {
   final String? edhrecRank;
   final String? pennyRank;
   final String? preview;
-  final String? prices;
-  final String? relatedUris;
-  final String? purchaseUris;
+  final Map<String, dynamic>? prices;
+  final Map<String, dynamic>? relatedUris;
+  final Map<String, dynamic>? purchaseUris;
   final String? rulingsUri;
   final String? scryfallUri;
   final String? uri;
+  // Campos para versões impressas em português
+  final String? printedName;
+  final String? printedText;
+  final String? printedTypeLine;
 
   MTGCard({
     required this.id,
@@ -101,6 +105,9 @@ class MTGCard {
     this.rulingsUri,
     this.scryfallUri,
     this.uri,
+    this.printedName,
+    this.printedText,
+    this.printedTypeLine,
   });
 
   factory MTGCard.fromJson(Map<String, dynamic> json) {
@@ -129,11 +136,9 @@ class MTGCard {
       imageUrlBorderCrop: json['image_uris']?['border_crop'],
       cmc: json['cmc']?.toDouble(),
       keywords: List<String>.from(json['keywords'] ?? []),
-      legalities:
-          (json['legalities']?.keys as Iterable<dynamic>?)
-              ?.cast<String>()
-              .toList() ??
-          [],
+      legalities: json['legalities'] != null
+          ? (json['legalities'] as Map<String, dynamic>).keys.toList()
+          : [],
       layout: json['layout'],
       reserved: json['reserved'],
       foil: json['foil'],
@@ -153,12 +158,22 @@ class MTGCard {
       edhrecRank: json['edhrec_rank']?.toString(),
       pennyRank: json['penny_rank']?.toString(),
       preview: json['preview'],
-      prices: json['prices']?.toString(),
-      relatedUris: json['related_uris']?.toString(),
-      purchaseUris: json['purchase_uris']?.toString(),
+      prices: json['prices'] != null
+          ? Map<String, dynamic>.from(json['prices'])
+          : null,
+      relatedUris: json['related_uris'] != null
+          ? Map<String, dynamic>.from(json['related_uris'])
+          : null,
+      purchaseUris: json['purchase_uris'] != null
+          ? Map<String, dynamic>.from(json['purchase_uris'])
+          : null,
       rulingsUri: json['rulings_uri'],
       scryfallUri: json['scryfall_uri'],
       uri: json['uri'],
+      // Campos para versões impressas em português
+      printedName: json['printed_name'],
+      printedText: json['printed_text'],
+      printedTypeLine: json['printed_type_line'],
     );
   }
 
@@ -215,6 +230,10 @@ class MTGCard {
       'rulings_uri': rulingsUri,
       'scryfall_uri': scryfallUri,
       'uri': uri,
+      // Campos para versões impressas em português
+      'printed_name': printedName,
+      'printed_text': printedText,
+      'printed_type_line': printedTypeLine,
     };
   }
 

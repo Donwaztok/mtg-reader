@@ -227,7 +227,11 @@ class OCRService {
   /// Limpa o texto removendo caracteres que podem confundir o OCR
   String _cleanText(String text) {
     // Remove caracteres especiais que não são parte de nomes de cartas
-    String cleaned = text.replaceAll(RegExp(r'[^\w\s\-\.]'), ' ');
+    // Mantém letras acentuadas e cedilha
+    String cleaned = text.replaceAll(
+      RegExp(r'[^\w\s\-\.áàãâéèêíìîóòõôúùûçñ]'),
+      ' ',
+    );
 
     // Remove espaços múltiplos
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
@@ -358,21 +362,41 @@ class OCRService {
 
   /// Extrai número do coletor de um texto que pode conter outras informações
   String? _extractCollectorNumber(String text) {
-    // Procura por padrões como "255/264 L" onde 255 é o número do coletor
-    RegExp collectorPattern = RegExp(r'(\d+)/(\d+)\s*([A-Z]{1,3})?');
+    // Procura por padrões como "026/271 U ONE • PT NINO VECIA" onde 026 é o número do coletor
+    RegExp collectorPattern = RegExp(r'(\d+)/(\d+)');
     var match = collectorPattern.firstMatch(text);
-    if (match != null && match.groupCount >= 2) {
+    if (match != null && match.groupCount >= 1) {
       String? collectorNumber = match.group(1);
       if (collectorNumber != null) {
         return collectorNumber;
       }
     }
 
-    // Procura por números simples
-    RegExp numberPattern = RegExp(r'\b(\d{1,4})\b');
-    var numberMatch = numberPattern.firstMatch(text);
-    if (numberMatch != null) {
-      return numberMatch.group(1);
+    // Procura por padrões como "255/264 L" onde 255 é o número do coletor
+    RegExp simplePattern = RegExp(r'(\d+)/(\d+)\s*([A-Z]{1,3})?');
+    var simpleMatch = simplePattern.firstMatch(text);
+    if (simpleMatch != null && simpleMatch.groupCount >= 2) {
+      String? collectorNumber = simpleMatch.group(1);
+      if (collectorNumber != null) {
+        return collectorNumber;
+      }
+    }
+
+    // Procura por padrões específicos de collector number
+    // Formato: "026 271 ONE PT NING VECLA" ou similar
+    RegExp specificPattern = RegExp(r'(\d{1,3})\s+\d+\s+[A-Z]{3}');
+    var specificMatch = specificPattern.firstMatch(text);
+    if (specificMatch != null) {
+      return specificMatch.group(1);
+    }
+
+    // Procura por números simples apenas se o texto for curto e parecer um collector number
+    if (text.length <= 10 && RegExp(r'^\d{1,3}$').hasMatch(text.trim())) {
+      RegExp numberPattern = RegExp(r'\b(\d{1,3})\b');
+      var numberMatch = numberPattern.firstMatch(text);
+      if (numberMatch != null) {
+        return numberMatch.group(1);
+      }
     }
 
     return null;
@@ -380,9 +404,15 @@ class OCRService {
 
   /// Verifica se o texto parece ser um número do coletor
   bool _isCollectorNumber(String text) {
-    // Números do coletor são geralmente números de 1 a 4 dígitos
-    RegExp collectorNumberRegex = RegExp(r'^\d{1,4}$');
-    return collectorNumberRegex.hasMatch(text.trim());
+    // Números do coletor são geralmente números de 1 a 3 dígitos
+    // e não devem ser muito pequenos (evita pegar "0" ou "1" isolados)
+    RegExp collectorNumberRegex = RegExp(r'^\d{2,3}$');
+    if (collectorNumberRegex.hasMatch(text.trim())) {
+      int number = int.tryParse(text.trim()) ?? 0;
+      // Evita números muito pequenos que podem ser confundidos com outros elementos
+      return number >= 10;
+    }
+    return false;
   }
 
   /// Extrai código de set de um texto que pode conter outras informações
@@ -450,13 +480,7 @@ class OCRService {
       '+': 'T', // + confundido com T
       '=': 'E', // = confundido com E
       '?': 'P', // ? confundido com P
-      'ç': 'c', // Ç confundido com c
-      'ã': 'a', // ã confundido com a
-      'õ': 'o', // õ confundido com o
-      'á': 'a', // á confundido com a
-      'é': 'e', // é confundido com e
-      'í': 'i', // í confundido com i
-      'ó': 'o', // ó confundido com o
+      // Removidas correções de acentos para manter nomes corretos em português
     };
 
     // Aplica correções apenas se o nome original parece ter problemas
@@ -479,7 +503,10 @@ class OCRService {
 
     // Remove apenas caracteres que realmente não fazem parte de nomes de cartas
     // Mantém acentos e caracteres especiais que podem ser importantes
-    improved = improved.replaceAll(RegExp(r'[^\w\s\-\.]'), ' ');
+    improved = improved.replaceAll(
+      RegExp(r'[^\w\s\-\.áàãâéèêíìîóòõôúùûçñ]'),
+      ' ',
+    );
 
     return improved.trim();
   }

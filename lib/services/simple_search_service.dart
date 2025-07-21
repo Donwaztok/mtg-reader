@@ -61,43 +61,27 @@ class SimpleSearchService {
     }
   }
 
-  /// Gera variações de busca baseadas em limpeza e correções comuns
-  List<String> _generateSearchVariations(String text) {
-    List<String> variations = [];
-
-    // Variação sem acentos
-    final withoutAccents = _removeAccents(text);
-    if (withoutAccents != text) {
-      variations.add(withoutAccents);
-    }
-
-    // Variação com correções de OCR comuns
-    final ocrCorrected = _correctOCRCommonErrors(text);
-    if (ocrCorrected != text) {
-      variations.add(ocrCorrected);
-    }
-
-    // Variação combinada (sem acentos + correções OCR)
-    if (withoutAccents != text) {
-      final combined = _correctOCRCommonErrors(withoutAccents);
-      if (combined != withoutAccents) {
-        variations.add(combined);
-      }
-    }
-
-    return variations;
-  }
-
-  /// Busca uma carta por collector number e set
+  /// Busca uma carta por collector number e set com suporte a idioma
   Future<MTGCard?> searchCardByCollectorNumber(
     String setCode,
-    String collectorNumber,
-  ) async {
+    String collectorNumber, {
+    String? language,
+  }) async {
     try {
-      print('Buscando carta por collector: $setCode/$collectorNumber');
+      print(
+        'Buscando carta por collector: $setCode/$collectorNumber (lang: $language)',
+      );
+
+      // Limpa o collector number removendo zeros à esquerda
+      final cleanCollectorNumber = _cleanCollectorNumber(collectorNumber);
+
+      String url = '$_baseUrl/cards/$setCode/$cleanCollectorNumber';
+      if (language != null) {
+        url += '/$language';
+      }
 
       final response = await http.get(
-        Uri.parse('$_baseUrl/cards/$setCode/$collectorNumber'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -115,18 +99,26 @@ class SimpleSearchService {
     return null;
   }
 
-  /// Busca uma carta por nome e set
+  /// Busca uma carta por nome e set com suporte a idioma
   Future<MTGCard?> searchCardByNameAndSet(
     String cardName,
-    String setCode,
-  ) async {
+    String setCode, {
+    String? language,
+  }) async {
     try {
-      print('Buscando carta por nome e set: $cardName ($setCode)');
+      print(
+        'Buscando carta por nome e set: $cardName ($setCode, lang: $language)',
+      );
 
       final cleanName = _cleanCardName(cardName);
 
+      String url = '$_baseUrl/cards/$setCode/${Uri.encodeComponent(cleanName)}';
+      if (language != null) {
+        url += '/$language';
+      }
+
       final response = await http.get(
-        Uri.parse('$_baseUrl/cards/$setCode/$cleanName'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -205,7 +197,7 @@ class SimpleSearchService {
     return [];
   }
 
-  /// Busca uma carta usando múltiplas estratégias
+  /// Busca uma carta usando múltiplas estratégias com suporte a idioma
   Future<MTGCard?> searchCardInBulkData(
     String cardName,
     String? setCode,
@@ -218,10 +210,19 @@ class SimpleSearchService {
 
       // Estratégia 1: Collector number + set (mais preciso)
       if (setCode != null && collectorNumber != null) {
-        final card = await searchCardByCollectorNumber(
+        // Tenta primeiro em português
+        var card = await searchCardByCollectorNumber(
           setCode,
           collectorNumber,
+          language: 'pt',
         );
+        if (card != null) {
+          print('Carta encontrada por collector number (PT): ${card.name}');
+          return card;
+        }
+
+        // Se não encontrar em português, tenta sem especificar idioma
+        card = await searchCardByCollectorNumber(setCode, collectorNumber);
         if (card != null) {
           print('Carta encontrada por collector number: ${card.name}');
           return card;
@@ -230,7 +231,19 @@ class SimpleSearchService {
 
       // Estratégia 2: Nome + set
       if (setCode != null) {
-        final card = await searchCardByNameAndSet(cardName, setCode);
+        // Tenta primeiro em português
+        var card = await searchCardByNameAndSet(
+          cardName,
+          setCode,
+          language: 'pt',
+        );
+        if (card != null) {
+          print('Carta encontrada por nome e set (PT): ${card.name}');
+          return card;
+        }
+
+        // Se não encontrar em português, tenta sem especificar idioma
+        card = await searchCardByNameAndSet(cardName, setCode);
         if (card != null) {
           print('Carta encontrada por nome e set: ${card.name}');
           return card;
@@ -261,6 +274,12 @@ class SimpleSearchService {
         .trim();
   }
 
+  /// Limpa o collector number removendo zeros à esquerda
+  String _cleanCollectorNumber(String collectorNumber) {
+    // Remove zeros à esquerda, mas mantém pelo menos um dígito
+    return collectorNumber.replaceAll(RegExp(r'^0+'), '');
+  }
+
   /// Remove acentos de uma string
   String _removeAccents(String text) {
     return text
@@ -283,6 +302,33 @@ class SimpleSearchService {
         .replaceAll('û', 'u')
         .replaceAll('ç', 'c')
         .replaceAll('ñ', 'n');
+  }
+
+  /// Gera variações de busca baseadas em limpeza e correções comuns
+  List<String> _generateSearchVariations(String text) {
+    List<String> variations = [];
+
+    // Variação sem acentos
+    final withoutAccents = _removeAccents(text);
+    if (withoutAccents != text) {
+      variations.add(withoutAccents);
+    }
+
+    // Variação com correções de OCR comuns
+    final ocrCorrected = _correctOCRCommonErrors(text);
+    if (ocrCorrected != text) {
+      variations.add(ocrCorrected);
+    }
+
+    // Variação combinada (sem acentos + correções OCR)
+    if (withoutAccents != text) {
+      final combined = _correctOCRCommonErrors(withoutAccents);
+      if (combined != withoutAccents) {
+        variations.add(combined);
+      }
+    }
+
+    return variations;
   }
 
   /// Corrige erros comuns do OCR de forma mais inteligente
