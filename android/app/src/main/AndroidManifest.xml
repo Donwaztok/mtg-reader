@@ -14,7 +14,10 @@
         android:label="mtg_scanner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:vmSafeMode="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
