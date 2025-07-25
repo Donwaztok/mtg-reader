@@ -1,3 +1,30 @@
+class MTGCardForeignName {
+  final String language;
+  final String name;
+  final String? text;
+  final String? type;
+
+  MTGCardForeignName({
+    required this.language,
+    required this.name,
+    this.text,
+    this.type,
+  });
+
+  factory MTGCardForeignName.fromJson(Map<String, dynamic> json) {
+    return MTGCardForeignName(
+      language: json['language'] ?? '',
+      name: json['name'] ?? '',
+      text: json['text'],
+      type: json['type'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'language': language, 'name': name, 'text': text, 'type': type};
+  }
+}
+
 class MTGCard {
   final String id;
   final String name;
@@ -49,6 +76,7 @@ class MTGCard {
   final String? rulingsUri;
   final String? scryfallUri;
   final String? uri;
+  final List<MTGCardForeignName> foreignNames;
   // Campos para versões impressas em português
   final String? printedName;
   final String? printedText;
@@ -105,12 +133,34 @@ class MTGCard {
     this.rulingsUri,
     this.scryfallUri,
     this.uri,
+    this.foreignNames = const [],
+    // Campos para versões impressas em português
     this.printedName,
     this.printedText,
     this.printedTypeLine,
   });
 
   factory MTGCard.fromJson(Map<String, dynamic> json) {
+    // Debug: verificar se o campo foreign_names existe na resposta
+    print('JSON keys: ${json.keys.toList()}');
+    print('Foreign names field: ${json['foreign_names']}');
+    print('Foreign names field (alternative): ${json['foreignNames']}');
+
+    List<MTGCardForeignName> foreignNamesList = [];
+
+    // Tentar diferentes possíveis nomes do campo
+    var foreignNamesData =
+        json['foreign_names'] ?? json['foreignNames'] ?? json['foreign-names'];
+
+    if (foreignNamesData != null && foreignNamesData is List) {
+      print('Found foreign names data: $foreignNamesData');
+      foreignNamesList = (foreignNamesData)
+          .map((e) => MTGCardForeignName.fromJson(e))
+          .toList();
+    }
+
+    print('Parsed foreign names count: ${foreignNamesList.length}');
+
     return MTGCard(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
@@ -137,7 +187,9 @@ class MTGCard {
       cmc: json['cmc']?.toDouble(),
       keywords: List<String>.from(json['keywords'] ?? []),
       legalities: json['legalities'] != null
-          ? (json['legalities'] as Map<String, dynamic>).keys.toList()
+          ? (json['legalities'] as Map<String, dynamic>).entries
+                .map((e) => '${e.key}:${e.value}')
+                .toList()
           : [],
       layout: json['layout'],
       reserved: json['reserved'],
@@ -170,6 +222,7 @@ class MTGCard {
       rulingsUri: json['rulings_uri'],
       scryfallUri: json['scryfall_uri'],
       uri: json['uri'],
+      foreignNames: foreignNamesList,
       // Campos para versões impressas em português
       printedName: json['printed_name'],
       printedText: json['printed_text'],
@@ -230,6 +283,7 @@ class MTGCard {
       'rulings_uri': rulingsUri,
       'scryfall_uri': scryfallUri,
       'uri': uri,
+      'foreign_names': foreignNames.map((e) => e.toJson()).toList(),
       // Campos para versões impressas em português
       'printed_name': printedName,
       'printed_text': printedText,

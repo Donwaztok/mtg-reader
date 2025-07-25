@@ -4,8 +4,36 @@ import 'package:provider/provider.dart';
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
 
-class CardDetailsScreen extends StatelessWidget {
+const Map<String, String> languageLabels = {
+  'English': 'Inglês',
+  'Portuguese': 'Português',
+  'Spanish': 'Espanhol',
+  'French': 'Francês',
+  'German': 'Alemão',
+  'Italian': 'Italiano',
+  'Japanese': 'Japonês',
+  'Korean': 'Coreano',
+  'Russian': 'Russo',
+  'Simplified Chinese': 'Chinês Simplificado',
+  'Traditional Chinese': 'Chinês Tradicional',
+  'Hebrew': 'Hebraico',
+  'Latin': 'Latim',
+  'Ancient Greek': 'Grego Antigo',
+  'Arabic': 'Árabe',
+  'Sanskrit': 'Sânscrito',
+  'Phyrexian': 'Phyrexiano',
+  'Quenya': 'Quenya',
+};
+
+class CardDetailsScreen extends StatefulWidget {
   const CardDetailsScreen({super.key});
+
+  @override
+  State<CardDetailsScreen> createState() => _CardDetailsScreenState();
+}
+
+class _CardDetailsScreenState extends State<CardDetailsScreen> {
+  String? _selectedLanguage; // null = original
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +63,7 @@ class CardDetailsScreen extends StatelessWidget {
             backgroundColor: Colors.grey[900],
             appBar: AppBar(
               title: Text(
-                card.name,
+                _getCardName(card),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -62,10 +90,16 @@ class CardDetailsScreen extends StatelessWidget {
             body: SingleChildScrollView(
               child: Column(
                 children: [
+                  _buildLanguageSelector(card),
                   _buildCardImage(card),
                   _buildCardInfo(card),
                   _buildCardText(card),
                   _buildAdditionalInfo(card),
+                  _buildCardIdentifiers(card),
+                  _buildCardLegalities(card),
+                  _buildCardPrices(card),
+                  _buildCardLinks(card),
+                  _buildCardMetadata(card),
                   _buildActionButtons(context, provider),
                 ],
               ),
@@ -74,6 +108,97 @@ class CardDetailsScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  // Dropdown de idiomas
+  Widget _buildLanguageSelector(MTGCard card) {
+    // Debug: verificar se foreignNames está sendo carregado
+    print('Foreign names count: ${card.foreignNames.length}');
+    print(
+      'Foreign names: ${card.foreignNames.map((f) => '${f.language}: ${f.name}').toList()}',
+    );
+
+    final languages = [
+      {'code': null, 'label': 'Original'},
+      ...card.foreignNames.map(
+        (f) => {
+          'code': f.language,
+          'label': languageLabels[f.language] ?? f.language,
+        },
+      ),
+    ];
+
+    print('Available languages: ${languages.map((l) => l['label']).toList()}');
+
+    // Sempre mostra o dropdown, mesmo se só houver o original
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[700]!),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.language, color: Colors.grey, size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'Idioma:',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButton<String?>(
+              value: _selectedLanguage,
+              isExpanded: true,
+              dropdownColor: Colors.grey[850],
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              underline: const SizedBox.shrink(),
+              items: languages.map((lang) {
+                return DropdownMenuItem<String?>(
+                  value: lang['code'],
+                  child: Text(lang['label'] ?? ''),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedLanguage = newValue;
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Métodos auxiliares para pegar nome, tipo e texto conforme idioma
+  String _getCardName(MTGCard card) {
+    if (_selectedLanguage == null) return card.name;
+    final f = card.foreignNames.firstWhere(
+      (f) => f.language == _selectedLanguage,
+      orElse: () => card.foreignNames.first,
+    );
+    return f.name;
+  }
+
+  String? _getCardTypeLine(MTGCard card) {
+    if (_selectedLanguage == null) return card.typeLine;
+    final f = card.foreignNames.firstWhere(
+      (f) => f.language == _selectedLanguage,
+      orElse: () => card.foreignNames.first,
+    );
+    return f.type ?? card.typeLine;
+  }
+
+  String? _getCardText(MTGCard card) {
+    if (_selectedLanguage == null) return card.oracleText;
+    final f = card.foreignNames.firstWhere(
+      (f) => f.language == _selectedLanguage,
+      orElse: () => card.foreignNames.first,
+    );
+    return f.text ?? card.oracleText;
   }
 
   Widget _buildCardImage(MTGCard card) {
@@ -162,7 +287,8 @@ class CardDetailsScreen extends StatelessWidget {
 
   Widget _buildCardInfo(MTGCard card) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[850],
@@ -179,7 +305,7 @@ class CardDetailsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            card.name,
+            _getCardName(card),
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -198,9 +324,9 @@ class CardDetailsScreen extends StatelessWidget {
           ],
 
           // Linha de tipo
-          if (card.typeLine != null) ...[
+          if (_getCardTypeLine(card) != null) ...[
             Text(
-              card.typeLine!,
+              _getCardTypeLine(card)!,
               style: const TextStyle(
                 fontSize: 16,
                 color: Colors.grey,
@@ -265,9 +391,11 @@ class CardDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildCardText(MTGCard card) {
-    if (card.oracleText == null) return const SizedBox.shrink();
+    final cardText = _getCardText(card);
+    if (cardText == null) return const SizedBox.shrink();
 
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -294,7 +422,7 @@ class CardDetailsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            card.oracleText!,
+            cardText,
             style: const TextStyle(
               fontSize: 14,
               height: 1.5,
@@ -308,6 +436,7 @@ class CardDetailsScreen extends StatelessWidget {
 
   Widget _buildAdditionalInfo(MTGCard card) {
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -392,6 +521,7 @@ class CardDetailsScreen extends StatelessWidget {
 
   Widget _buildActionButtons(BuildContext context, ScannerProvider provider) {
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.all(16),
       child: Row(
         children: [
@@ -431,6 +561,322 @@ class CardDetailsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCardIdentifiers(MTGCard card) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Identificadores',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('ID Scryfall', card.id),
+          if (card.uri != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow('URI', card.uri!),
+          ],
+          if (card.scryfallUri != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow('Scryfall URI', card.scryfallUri!),
+          ],
+          if (card.rulingsUri != null) ...[
+            const SizedBox(height: 8),
+            _buildInfoRow('Rulings URI', card.rulingsUri!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardLegalities(MTGCard card) {
+    if (card.legalities.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Legalidades',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...card.legalities.map((format) {
+            final parts = format.split(':');
+            final formatName = parts[0];
+            final status = parts.length > 1 ? parts[1] : 'unknown';
+            final isLegal = status == 'legal';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    isLegal ? Icons.check_circle : Icons.cancel,
+                    color: isLegal ? Colors.green : Colors.red,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    formatName.replaceAll('_', ' ').toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isLegal ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardPrices(MTGCard card) {
+    if (card.prices == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Preços',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (card.prices!['usd'] != null) ...[
+            _buildInfoRow('USD', '\$${card.prices!['usd']}'),
+            const SizedBox(height: 8),
+          ],
+          if (card.prices!['usd_foil'] != null) ...[
+            _buildInfoRow('USD Foil', '\$${card.prices!['usd_foil']}'),
+            const SizedBox(height: 8),
+          ],
+          if (card.prices!['eur'] != null) ...[
+            _buildInfoRow('EUR', '€${card.prices!['eur']}'),
+            const SizedBox(height: 8),
+          ],
+          if (card.prices!['eur_foil'] != null) ...[
+            _buildInfoRow('EUR Foil', '€${card.prices!['eur_foil']}'),
+            const SizedBox(height: 8),
+          ],
+          if (card.prices!['tix'] != null) ...[
+            _buildInfoRow('MTGO Tix', '${card.prices!['tix']} tix'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardLinks(MTGCard card) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Links Úteis',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (card.relatedUris != null) ...[
+            if (card.relatedUris!['gatherer'] != null) ...[
+              _buildLinkRow('Gatherer', card.relatedUris!['gatherer']),
+              const SizedBox(height: 8),
+            ],
+            if (card.relatedUris!['edhrec'] != null) ...[
+              _buildLinkRow('EDHREC', card.relatedUris!['edhrec']),
+              const SizedBox(height: 8),
+            ],
+          ],
+          if (card.purchaseUris != null) ...[
+            if (card.purchaseUris!['tcgplayer'] != null) ...[
+              _buildLinkRow('TCGPlayer', card.purchaseUris!['tcgplayer']),
+              const SizedBox(height: 8),
+            ],
+            if (card.purchaseUris!['cardmarket'] != null) ...[
+              _buildLinkRow('Cardmarket', card.purchaseUris!['cardmarket']),
+              const SizedBox(height: 8),
+            ],
+            if (card.purchaseUris!['cardhoarder'] != null) ...[
+              _buildLinkRow('Cardhoarder', card.purchaseUris!['cardhoarder']),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardMetadata(MTGCard card) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Metadados',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('Layout', card.layout ?? 'N/A'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Frame', card.frame ?? 'N/A'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Border Color', card.borderColor ?? 'N/A'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Foil', card.foil == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Nonfoil', card.nonfoil == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Oversized', card.oversized == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Promo', card.promo == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Reprint', card.reprint == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Variation', card.variation == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Full Art', card.fullArt == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Textless', card.textless == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow('Booster', card.booster == true ? 'Sim' : 'Não'),
+          const SizedBox(height: 8),
+          _buildInfoRow(
+            'Story Spotlight',
+            card.storySpotlight == true ? 'Sim' : 'Não',
+          ),
+          const SizedBox(height: 8),
+          _buildInfoRow('Reserved', card.reserved == true ? 'Sim' : 'Não'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkRow(String label, String url) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            '$label:',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              // Aqui você pode implementar a abertura do link
+              print('Opening: $url');
+            },
+            child: Text(
+              url,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

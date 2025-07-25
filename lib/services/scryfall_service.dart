@@ -15,42 +15,6 @@ class ScryfallService {
     await _searchService.initialize();
   }
 
-  /// Busca uma carta pelo nome exato
-  Future<MTGCard?> searchCardByName(String cardName) async {
-    try {
-      print('Buscando carta: $cardName'); // Debug
-
-      // Limpa o nome da carta
-      String cleanName = _cleanCardName(cardName);
-
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cards/named?exact=$cleanName'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Status da resposta: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        print('Carta encontrada: ${jsonData['name']}'); // Debug
-        return MTGCard.fromJson(jsonData);
-      } else if (response.statusCode == 404) {
-        print(
-          'Carta não encontrada com busca exata, tentando fuzzy...',
-        ); // Debug
-        // Carta não encontrada, tenta busca fuzzy
-        return await _searchCardFuzzy(cleanName);
-      } else {
-        print(
-          'Erro na API: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro ao buscar carta: $e');
-    }
-    return null;
-  }
-
   /// Busca uma carta usando busca fuzzy (aproximada)
   Future<MTGCard?> _searchCardFuzzy(String cardName) async {
     try {
@@ -453,6 +417,178 @@ class ScryfallService {
       print('Erro ao buscar por nome em bulk: $e');
     }
     return null;
+  }
+
+  /// Busca uma carta pelo nome exato
+  Future<MTGCard?> searchCardByName(String cardName) async {
+    try {
+      print('Buscando carta: $cardName'); // Debug
+
+      // Limpa o nome da carta
+      String cleanName = _cleanCardName(cardName);
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cards/named?exact=$cleanName'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('Status da resposta: ${response.statusCode}'); // Debug
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        print('Carta encontrada: ${jsonData['name']}'); // Debug
+
+        // Buscar traduções se a carta foi encontrada
+        MTGCard card = MTGCard.fromJson(jsonData);
+        if (card.foreignNames.isEmpty) {
+          // Tentar buscar traduções através dos prints da carta
+          card = await _enrichCardWithTranslations(card);
+        }
+
+        return card;
+      } else if (response.statusCode == 404) {
+        print(
+          'Carta não encontrada com busca exata, tentando fuzzy...',
+        ); // Debug
+        // Carta não encontrada, tenta busca fuzzy
+        return await _searchCardFuzzy(cleanName);
+      } else {
+        print(
+          'Erro na API: ${response.statusCode} - ${response.body}',
+        ); // Debug
+      }
+    } catch (e) {
+      print('Erro ao buscar carta: $e');
+    }
+    return null;
+  }
+
+  /// Enriquece uma carta com suas traduções disponíveis
+  Future<MTGCard> _enrichCardWithTranslations(MTGCard card) async {
+    try {
+      // Buscar todos os prints da carta para encontrar traduções
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cards/search?q=!"${card.name}" unique:prints'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final cards = jsonData['data'] as List;
+
+        List<MTGCardForeignName> allTranslations = [];
+
+        for (var cardData in cards) {
+          if (cardData['lang'] != 'en') {
+            // Se não é inglês, é uma tradução
+            allTranslations.add(
+              MTGCardForeignName(
+                language: _getLanguageName(cardData['lang']),
+                name: cardData['printed_name'] ?? cardData['name'],
+                text: cardData['printed_text'] ?? cardData['oracle_text'],
+                type: cardData['printed_type_line'] ?? cardData['type_line'],
+              ),
+            );
+          }
+        }
+
+        // Remover duplicatas baseado no idioma
+        final uniqueTranslations = <String, MTGCardForeignName>{};
+        for (var translation in allTranslations) {
+          uniqueTranslations[translation.language] = translation;
+        }
+
+        print('Found ${uniqueTranslations.length} unique translations');
+
+        // Criar nova carta com as traduções
+        return MTGCard(
+          id: card.id,
+          name: card.name,
+          manaCost: card.manaCost,
+          typeLine: card.typeLine,
+          oracleText: card.oracleText,
+          flavorText: card.flavorText,
+          power: card.power,
+          toughness: card.toughness,
+          colors: card.colors,
+          colorIdentity: card.colorIdentity,
+          rarity: card.rarity,
+          set: card.set,
+          setName: card.setName,
+          collectorNumber: card.collectorNumber,
+          artist: card.artist,
+          imageUrl: card.imageUrl,
+          imageUrlSmall: card.imageUrlSmall,
+          imageUrlNormal: card.imageUrlNormal,
+          imageUrlLarge: card.imageUrlLarge,
+          imageUrlPng: card.imageUrlPng,
+          imageUrlArtCrop: card.imageUrlArtCrop,
+          imageUrlBorderCrop: card.imageUrlBorderCrop,
+          cmc: card.cmc,
+          keywords: card.keywords,
+          legalities: card.legalities,
+          layout: card.layout,
+          reserved: card.reserved,
+          foil: card.foil,
+          nonfoil: card.nonfoil,
+          oversized: card.oversized,
+          promo: card.promo,
+          reprint: card.reprint,
+          variation: card.variation,
+          setType: card.setType,
+          borderColor: card.borderColor,
+          frame: card.frame,
+          frameEffect: card.frameEffect,
+          fullArt: card.fullArt,
+          textless: card.textless,
+          booster: card.booster,
+          storySpotlight: card.storySpotlight,
+          edhrecRank: card.edhrecRank,
+          pennyRank: card.pennyRank,
+          preview: card.preview,
+          prices: card.prices,
+          relatedUris: card.relatedUris,
+          purchaseUris: card.purchaseUris,
+          rulingsUri: card.rulingsUri,
+          scryfallUri: card.scryfallUri,
+          uri: card.uri,
+          foreignNames: uniqueTranslations.values.toList(),
+          printedName: card.printedName,
+          printedText: card.printedText,
+          printedTypeLine: card.printedTypeLine,
+        );
+      }
+    } catch (e) {
+      print('Erro ao buscar traduções: $e');
+    }
+
+    return card;
+  }
+
+  /// Converte código de idioma para nome completo
+  String _getLanguageName(String langCode) {
+    const languageMap = {
+      'en': 'English',
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'it': 'Italian',
+      'pt': 'Portuguese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'ru': 'Russian',
+      'zhs': 'Simplified Chinese',
+      'zht': 'Traditional Chinese',
+      'he': 'Hebrew',
+      'la': 'Latin',
+      'grc': 'Ancient Greek',
+      'ar': 'Arabic',
+      'sa': 'Sanskrit',
+      'ph': 'Phyrexian',
+      'qya': 'Quenya',
+    };
+
+    return languageMap[langCode] ?? langCode;
   }
 
   /// Limpa o nome da carta para melhorar a busca
