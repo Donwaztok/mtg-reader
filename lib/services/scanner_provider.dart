@@ -136,8 +136,9 @@ class ScannerProvider extends ChangeNotifier {
           List<String> searchAttempts = [];
           if (cardName != null) searchAttempts.add('nome: $cardName');
           if (setCode != null) searchAttempts.add('set: $setCode');
-          if (collectorNumber != null)
+          if (collectorNumber != null) {
             searchAttempts.add('collector: $collectorNumber');
+          }
 
           _errorMessage =
               'Carta não encontrada com ${searchAttempts.join(', ')}. Verifique se a carta está bem posicionada e iluminada.';
@@ -395,8 +396,9 @@ class ScannerProvider extends ChangeNotifier {
     if (info.containsKey('name') && info['name']!.isNotEmpty) score++;
     if (info.containsKey('setCode') && info['setCode']!.isNotEmpty) score++;
     if (info.containsKey('collectorNumber') &&
-        info['collectorNumber']!.isNotEmpty)
+        info['collectorNumber']!.isNotEmpty) {
       score++;
+    }
     if (info.containsKey('language') && info['language']!.isNotEmpty) score++;
     if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty) score++;
 

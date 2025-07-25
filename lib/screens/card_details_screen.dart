@@ -9,58 +9,66 @@ class CardDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Detalhes da Carta',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () => _showShareDialog(context),
-          ),
-        ],
-      ),
-      body: Consumer<ScannerProvider>(
+    return Theme(
+      data: ThemeData.dark(),
+      child: Consumer<ScannerProvider>(
         builder: (context, provider, child) {
           final card = provider.scannedCard;
 
           if (provider.isProcessing) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (card == null) {
-            return _buildErrorView(
-              provider.errorMessage ?? 'Carta não encontrada',
+            return Scaffold(
+              backgroundColor: Colors.grey[900],
+              body: const Center(child: CircularProgressIndicator()),
             );
           }
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // Imagem da carta
-                _buildCardImage(card),
+          if (card == null) {
+            return Scaffold(
+              backgroundColor: Colors.grey[900],
+              body: _buildErrorView(
+                provider.errorMessage ?? 'Carta não encontrada',
+              ),
+            );
+          }
 
-                // Informações da carta
-                _buildCardInfo(card),
-
-                // Texto da carta
-                _buildCardText(card),
-
-                // Informações adicionais
-                _buildAdditionalInfo(card),
-
-                // Botões de ação
-                _buildActionButtons(context, provider),
+          return Scaffold(
+            backgroundColor: Colors.grey[900],
+            appBar: AppBar(
+              title: Text(
+                card.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              flexibleSpace: Container(
+                decoration: BoxDecoration(
+                  gradient: _getCardColorGradient(card),
+                ),
+              ),
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  onPressed: () => _showShareDialog(context),
+                ),
               ],
+            ),
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildCardImage(card),
+                  _buildCardInfo(card),
+                  _buildCardText(card),
+                  _buildAdditionalInfo(card),
+                  _buildActionButtons(context, provider),
+                ],
+              ),
             ),
           );
         },
@@ -71,13 +79,12 @@ class CardDetailsScreen extends StatelessWidget {
   Widget _buildCardImage(MTGCard card) {
     return Container(
       width: double.infinity,
-      height: 300,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -88,21 +95,26 @@ class CardDetailsScreen extends StatelessWidget {
         child: card.imageUrlNormal != null
             ? Image.network(
                 card.imageUrlNormal!,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                          : null,
+                  return Container(
+                    height: 300,
+                    color: Colors.grey[800],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
                     ),
                   );
                 },
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
-                    color: Colors.grey[300],
+                    height: 300,
+                    color: Colors.grey[800],
                     child: const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -124,7 +136,8 @@ class CardDetailsScreen extends StatelessWidget {
                 },
               )
             : Container(
-                color: Colors.grey[300],
+                height: 300,
+                color: Colors.grey[800],
                 child: const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -152,11 +165,11 @@ class CardDetailsScreen extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -165,13 +178,12 @@ class CardDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Nome da carta
           Text(
             card.name,
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 8),
@@ -205,7 +217,7 @@ class CardDetailsScreen extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 8),
@@ -259,11 +271,11 @@ class CardDetailsScreen extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -277,7 +289,7 @@ class CardDetailsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
@@ -286,7 +298,7 @@ class CardDetailsScreen extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               height: 1.5,
-              color: Colors.black87,
+              color: Colors.white,
             ),
           ),
         ],
@@ -299,11 +311,11 @@ class CardDetailsScreen extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.grey[850],
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -317,7 +329,7 @@ class CardDetailsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
@@ -371,7 +383,7 @@ class CardDetailsScreen extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
+            style: const TextStyle(fontSize: 14, color: Colors.white),
           ),
         ),
       ],
@@ -409,6 +421,7 @@ class CardDetailsScreen extends StatelessWidget {
               label: const Text('Início'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.deepPurple,
+                side: const BorderSide(color: Colors.deepPurple),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -435,13 +448,13 @@ class CardDetailsScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
+                color: Colors.grey[300],
               ),
             ),
             const SizedBox(height: 8),
             Text(
               error,
-              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 16, color: Colors.grey[400]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -470,6 +483,69 @@ class CardDetailsScreen extends StatelessWidget {
       default:
         return Colors.grey;
     }
+  }
+
+  // Mapeamento das cores do Magic para cores do Flutter
+  Color _getColorFromMTGColor(String mtgColor) {
+    switch (mtgColor.toLowerCase()) {
+      case 'w': // White
+        return const Color(0xFFF8F6D8);
+      case 'u': // Blue
+        return const Color(0xFF0E68AB);
+      case 'b': // Black
+        return const Color(0xFF150B00);
+      case 'r': // Red
+        return const Color(0xFFD3202A);
+      case 'g': // Green
+        return const Color(0xFF00733E);
+      default:
+        return Colors.deepPurple;
+    }
+  }
+
+  // Gera o gradiente baseado nas cores da carta
+  LinearGradient _getCardColorGradient(MTGCard card) {
+    if (card.colors.isEmpty) {
+      // Se não há cores (artefato, terreno), usa gradiente neutro
+      return const LinearGradient(
+        colors: [Colors.grey, Colors.deepPurple],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+
+    if (card.colors.length == 1) {
+      // Se é uma cor só, cria um gradiente sutil
+      Color color = _getColorFromMTGColor(card.colors.first);
+      return LinearGradient(
+        colors: [color, color.withOpacity(0.7), color.withOpacity(0.9)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+
+    // Se são múltiplas cores, cria um gradiente
+    List<Color> gradientColors = card.colors
+        .map((color) => _getColorFromMTGColor(color))
+        .toList();
+
+    // Adiciona variações para criar um gradiente mais suave
+    List<Color> finalColors = [];
+    for (int i = 0; i < gradientColors.length; i++) {
+      finalColors.add(gradientColors[i]);
+      if (i < gradientColors.length - 1) {
+        // Adiciona uma cor intermediária entre as cores
+        finalColors.add(
+          Color.lerp(gradientColors[i], gradientColors[i + 1], 0.5)!,
+        );
+      }
+    }
+
+    return LinearGradient(
+      colors: finalColors,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
   }
 
   void _showShareDialog(BuildContext context) {
