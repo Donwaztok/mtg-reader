@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -110,143 +109,6 @@ class ScryfallService {
     return null;
   }
 
-  /// Busca múltiplas cartas por nomes
-  Future<List<MTGCard>> searchMultipleCards(List<String> cardNames) async {
-    try {
-      print('Buscando múltiplas cartas: $cardNames'); // Debug
-
-      final response = await http.post(
-        Uri.parse('$_baseUrl/cards/collection'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'identifiers': cardNames
-              .map((name) => {'name': _cleanCardName(name)})
-              .toList(),
-        }),
-      );
-
-      print('Status da resposta múltiplas: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final List<dynamic> cards = jsonData['data'] ?? [];
-        print('Cartas encontradas: ${cards.length}'); // Debug
-        return cards.map((card) => MTGCard.fromJson(card)).toList();
-      } else {
-        print(
-          'Erro na busca múltipla: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro ao buscar múltiplas cartas: $e');
-    }
-    return [];
-  }
-
-  /// Busca autocomplete para nomes de cartas
-  Future<List<String>> autocompleteCardNames(String query) async {
-    try {
-      print('Buscando autocomplete para: $query'); // Debug
-
-      String cleanQuery = _cleanCardName(query);
-
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cards/autocomplete?q=$cleanQuery'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Status da resposta autocomplete: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final List<dynamic> suggestions = jsonData['data'] ?? [];
-        print('Sugestões encontradas: ${suggestions.length}'); // Debug
-        return suggestions.cast<String>();
-      } else {
-        print(
-          'Erro no autocomplete: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro no autocomplete: $e');
-    }
-    return [];
-  }
-
-  /// Busca informações de um set específico
-  Future<Map<String, dynamic>?> getSetInfo(String setCode) async {
-    try {
-      print('Buscando informações do set: $setCode'); // Debug
-
-      String cleanSetCode = setCode.toUpperCase().trim();
-
-      final response = await http.get(
-        Uri.parse('$_baseUrl/sets/$cleanSetCode'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Status da resposta set info: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        print('Informações do set encontradas: ${jsonData['name']}'); // Debug
-        return jsonData;
-      } else {
-        print(
-          'Erro ao buscar informações do set: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro ao buscar informações do set: $e');
-    }
-    return null;
-  }
-
-  /// Lista todos os sets disponíveis
-  Future<List<Map<String, dynamic>>> getAllSets() async {
-    try {
-      print('Buscando todos os sets...'); // Debug
-
-      final response = await http.get(
-        Uri.parse('$_baseUrl/sets'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Status da resposta sets: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final List<dynamic> sets = jsonData['data'] ?? [];
-        print('Sets encontrados: ${sets.length}'); // Debug
-        return sets.cast<Map<String, dynamic>>();
-      } else {
-        print(
-          'Erro ao buscar todos os sets: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro ao buscar todos os sets: $e');
-    }
-    return [];
-  }
-
-  /// Reconhece uma carta a partir de uma imagem usando OCR melhorado
-  Future<MTGCard?> recognizeCardFromImage(Uint8List imageBytes) async {
-    try {
-      print('Iniciando reconhecimento de carta por imagem...'); // Debug
-
-      // Por enquanto, retorna null para usar o fallback OCR
-      // A API de reconhecimento de imagem do Scryfall não está disponível
-      print(
-        'API de reconhecimento de imagem não disponível, usando OCR...',
-      ); // Debug
-      return null;
-    } catch (e) {
-      print('Erro ao reconhecer carta por imagem: $e');
-    }
-    return null;
-  }
-
   /// Busca uma carta usando dados bulk (mais eficiente e inclui cartas em português)
   Future<MTGCard?> searchCardInBulkData(
     String cardName,
@@ -300,123 +162,6 @@ class ScryfallService {
       print('Erro ao buscar carta em dados bulk: $e');
       return null;
     }
-  }
-
-  /// Busca uma carta por collector number nos dados bulk
-  Future<MTGCard?> _searchCardByCollectorNumberInBulk(
-    String setCode,
-    String collectorNumber,
-  ) async {
-    try {
-      print(
-        'Buscando por collector number: $setCode/$collectorNumber',
-      ); // Debug
-
-      // Busca no endpoint de collector number (mais rápido)
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cards/$setCode/$collectorNumber'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      print('Status da resposta collector: ${response.statusCode}'); // Debug
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final card = MTGCard.fromJson(jsonData);
-        print('Carta encontrada por collector: ${card.name}'); // Debug
-        return card;
-      } else {
-        print(
-          'Erro na resposta: ${response.statusCode} - ${response.body}',
-        ); // Debug
-      }
-    } catch (e) {
-      print('Erro ao buscar por collector number em bulk: $e');
-    }
-    return null;
-  }
-
-  /// Busca uma carta por nome e set nos dados bulk
-  Future<MTGCard?> _searchCardByNameAndSetInBulk(
-    String cardName,
-    String setCode,
-  ) async {
-    try {
-      // Busca no endpoint de nome + set
-      final response = await http.get(
-        Uri.parse('$_baseUrl/cards/$setCode/$cardName'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        return MTGCard.fromJson(jsonData);
-      }
-    } catch (e) {
-      print('Erro ao buscar por nome e set em bulk: $e');
-    }
-    return null;
-  }
-
-  /// Busca uma carta por nome nos dados bulk
-  Future<MTGCard?> _searchCardByNameInBulk(String cardName) async {
-    try {
-      print('Buscando por nome: $cardName'); // Debug
-
-      // Lista de nomes para tentar (sem traduções hardcoded)
-      List<String> namesToTry = [cardName];
-
-      // Tenta cada nome
-      for (String name in namesToTry) {
-        print('Tentando nome: $name'); // Debug
-
-        // Primeira tentativa: busca exata
-        final response = await http.get(
-          Uri.parse('$_baseUrl/cards/named?exact=$name'),
-          headers: {'Content-Type': 'application/json'},
-        );
-
-        print(
-          'Status da resposta nome ($name): ${response.statusCode}',
-        ); // Debug
-
-        if (response.statusCode == 200) {
-          final jsonData = json.decode(response.body);
-          final card = MTGCard.fromJson(jsonData);
-          print('Carta encontrada por nome exato: ${card.name}'); // Debug
-          return card;
-        } else {
-          print(
-            'Erro na resposta nome ($name): ${response.statusCode} - ${response.body}',
-          ); // Debug
-
-          // Segunda tentativa: busca fuzzy
-          print('Tentando busca fuzzy para: $name'); // Debug
-          final fuzzyResponse = await http.get(
-            Uri.parse('$_baseUrl/cards/named?fuzzy=$name'),
-            headers: {'Content-Type': 'application/json'},
-          );
-
-          print(
-            'Status da resposta fuzzy ($name): ${fuzzyResponse.statusCode}',
-          ); // Debug
-
-          if (fuzzyResponse.statusCode == 200) {
-            final jsonData = json.decode(fuzzyResponse.body);
-            final card = MTGCard.fromJson(jsonData);
-            print('Carta encontrada por fuzzy: ${card.name}'); // Debug
-            return card;
-          } else {
-            print(
-              'Erro na resposta fuzzy ($name): ${fuzzyResponse.statusCode} - ${fuzzyResponse.body}',
-            ); // Debug
-          }
-        }
-      }
-    } catch (e) {
-      print('Erro ao buscar por nome em bulk: $e');
-    }
-    return null;
   }
 
   /// Busca uma carta pelo nome exato
@@ -688,5 +433,114 @@ class ScryfallService {
       print('Erro ao buscar carta em idioma específico: $e');
     }
     return null;
+  }
+
+  /// Busca cartas usando a API de busca do Scryfall
+  Future<List<MTGCard>> searchCards(
+    String query, {
+    String? unique,
+    String? order,
+    String? dir,
+    bool? includeExtras,
+    bool? includeMultilingual,
+    bool? includeVariations,
+    int? page,
+  }) async {
+    try {
+      print('🔍 [ScryfallService] Iniciando busca com query: "$query"');
+      print(
+        '🔍 [ScryfallService] Parâmetros: unique=$unique, order=$order, dir=$dir, page=$page',
+      );
+
+      // Construir a URL com parâmetros
+      Map<String, String> params = {'q': query};
+      if (unique != null) params['unique'] = unique;
+      if (order != null) params['order'] = order;
+      if (dir != null) params['dir'] = dir;
+      if (includeExtras != null)
+        params['include_extras'] = includeExtras.toString();
+      if (includeMultilingual != null)
+        params['include_multilingual'] = includeMultilingual.toString();
+      if (includeVariations != null)
+        params['include_variations'] = includeVariations.toString();
+      if (page != null) params['page'] = page.toString();
+
+      print('🔧 [ScryfallService] Parâmetros construídos: $params');
+
+      final uri = Uri.parse(
+        '$_baseUrl/cards/search',
+      ).replace(queryParameters: params);
+
+      print('🌐 [ScryfallService] URL da busca: $uri');
+      print(
+        '🌐 [ScryfallService] URL decodificada: ${Uri.decodeFull(uri.toString())}',
+      );
+
+      final response = await http.get(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('📡 [ScryfallService] Status da resposta: ${response.statusCode}');
+      print(
+        '📡 [ScryfallService] Tamanho da resposta: ${response.body.length} bytes',
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        print('📋 [ScryfallService] Chaves do JSON: ${jsonData.keys.toList()}');
+
+        final List<dynamic> cardsData = jsonData['data'] ?? [];
+        print(
+          '🎴 [ScryfallService] Encontradas ${cardsData.length} cartas no JSON',
+        );
+
+        if (cardsData.isEmpty) {
+          print('⚠️ [ScryfallService] Nenhuma carta encontrada no array data');
+          print(
+            '📄 [ScryfallService] Conteúdo da resposta: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}...',
+          );
+        }
+
+        List<MTGCard> cards = [];
+        for (int i = 0; i < cardsData.length; i++) {
+          try {
+            final cardData = cardsData[i];
+            print(
+              '🔄 [ScryfallService] Processando carta $i: ${cardData['name'] ?? 'sem nome'}',
+            );
+            final card = MTGCard.fromJson(cardData);
+            cards.add(card);
+            print(
+              '✅ [ScryfallService] Carta $i processada com sucesso: ${card.name}',
+            );
+          } catch (e) {
+            print('❌ [ScryfallService] Erro ao processar carta $i: $e');
+            // Continua processando outras cartas
+          }
+        }
+
+        print(
+          '🎯 [ScryfallService] Total de cartas processadas com sucesso: ${cards.length}',
+        );
+        return cards;
+      } else if (response.statusCode == 404) {
+        print(
+          '❌ [ScryfallService] Nenhuma carta encontrada para a busca: $query',
+        );
+        print('📄 [ScryfallService] Resposta 404: ${response.body}');
+        return [];
+      } else {
+        print('❌ [ScryfallService] Erro na API: ${response.statusCode}');
+        print('📄 [ScryfallService] Corpo da resposta: ${response.body}');
+        throw Exception(
+          'Erro na busca: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('💥 [ScryfallService] Erro ao buscar cartas: $e');
+      print('💥 [ScryfallService] Stack trace: ${StackTrace.current}');
+      throw Exception('Erro ao buscar cartas: $e');
+    }
   }
 }

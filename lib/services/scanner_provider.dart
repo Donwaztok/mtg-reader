@@ -96,53 +96,48 @@ class ScannerProvider extends ChangeNotifier {
 
       // Primeira tentativa: Reconhecimento de imagem direto
       print('Tentando reconhecimento de imagem...'); // Debug
-      _scannedCard = await _scryfallService.recognizeCardFromImage(imageBytes);
+
+      print('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
+
+      // Sistema de retry para extrair todas as informações (uma única captura)
+      _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 2);
+
+      // Log detalhado das informações extraídas
+      print('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
+      print('Nome: ${_extractedInfo['name']}');
+      print('Set Code: ${_extractedInfo['setCode']}');
+      print('Collector Number: ${_extractedInfo['collectorNumber']}');
+      print('Language: ${_extractedInfo['language']}');
+      print('Type Line: ${_extractedInfo['typeLine']}');
+      print('=====================================');
+
+      // Estratégia de busca otimizada usando dados bulk
+      String? setCode = _extractedInfo['setCode'];
+      String? collectorNumber = _extractedInfo['collectorNumber'];
+      String? cardName = _extractedInfo['name'];
+      String? language = _extractedInfo['language'];
+
+      // Busca usando dados bulk (mais eficiente e inclui cartas em português)
+      _scannedCard = await _scryfallService.searchCardInBulkData(
+        cardName ?? '',
+        setCode,
+        collectorNumber,
+        language: language,
+      );
 
       if (_scannedCard != null) {
-        print('Carta reconhecida por imagem: ${_scannedCard!.name}'); // Debug
+        print('Carta encontrada: ${_scannedCard!.name}'); // Debug
       } else {
-        print('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
-
-        // Sistema de retry para extrair todas as informações (uma única captura)
-        _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 2);
-
-        // Log detalhado das informações extraídas
-        print('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
-        print('Nome: ${_extractedInfo['name']}');
-        print('Set Code: ${_extractedInfo['setCode']}');
-        print('Collector Number: ${_extractedInfo['collectorNumber']}');
-        print('Language: ${_extractedInfo['language']}');
-        print('Type Line: ${_extractedInfo['typeLine']}');
-        print('=====================================');
-
-        // Estratégia de busca otimizada usando dados bulk
-        String? setCode = _extractedInfo['setCode'];
-        String? collectorNumber = _extractedInfo['collectorNumber'];
-        String? cardName = _extractedInfo['name'];
-        String? language = _extractedInfo['language'];
-
-        // Busca usando dados bulk (mais eficiente e inclui cartas em português)
-        _scannedCard = await _scryfallService.searchCardInBulkData(
-          cardName ?? '',
-          setCode,
-          collectorNumber,
-          language: language,
-        );
-
-        if (_scannedCard != null) {
-          print('Carta encontrada: ${_scannedCard!.name}'); // Debug
-        } else {
-          print('Carta não encontrada na base de dados'); // Debug
-          List<String> searchAttempts = [];
-          if (cardName != null) searchAttempts.add('nome: $cardName');
-          if (setCode != null) searchAttempts.add('set: $setCode');
-          if (collectorNumber != null) {
-            searchAttempts.add('collector: $collectorNumber');
-          }
-
-          _errorMessage =
-              'Carta não encontrada com ${searchAttempts.join(', ')}. Verifique se a carta está bem posicionada e iluminada.';
+        print('Carta não encontrada na base de dados'); // Debug
+        List<String> searchAttempts = [];
+        if (cardName != null) searchAttempts.add('nome: $cardName');
+        if (setCode != null) searchAttempts.add('set: $setCode');
+        if (collectorNumber != null) {
+          searchAttempts.add('collector: $collectorNumber');
         }
+
+        _errorMessage =
+            'Carta não encontrada com ${searchAttempts.join(', ')}. Verifique se a carta está bem posicionada e iluminada.';
       }
     } catch (e) {
       _errorMessage = 'Erro ao escanear carta: $e';

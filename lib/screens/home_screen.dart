@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../services/scanner_provider.dart';
 import 'camera_screen.dart';
-import 'card_details_screen.dart';
+import 'search_results_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -283,15 +283,52 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Buscar Carta'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Nome da Carta',
-            hintText: 'Ex: Lightning Bolt',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
+        title: const Text('Buscar Cartas'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Termo de Busca',
+                hintText: 'Ex: Lightning Bolt, c:red pow>3, set:thb',
+                border: OutlineInputBorder(),
+                helperText: 'Use a sintaxe do Scryfall para buscas avançadas',
+              ),
+              autofocus: true,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Dicas de Busca:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '• c:red - cartas vermelhas\n'
+                    '• pow>3 - poder maior que 3\n'
+                    '• set:thb - do set Theros\n'
+                    '• type:creature - criaturas\n'
+                    '• mana=2 - custo de mana 2',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -302,13 +339,12 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 Navigator.pop(context);
-                context.read<ScannerProvider>().searchCardManually(
-                  controller.text,
-                );
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const CardDetailsScreen(),
+                    builder: (context) => SearchResultsScreen(
+                      searchQuery: controller.text.trim(),
+                    ),
                   ),
                 );
               }
