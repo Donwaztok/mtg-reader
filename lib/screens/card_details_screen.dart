@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
+import '../services/scryfall_service.dart';
 
 const Map<String, String> languageLabels = {
   'English': 'Inglês',
@@ -25,6 +26,28 @@ const Map<String, String> languageLabels = {
   'Quenya': 'Quenya',
 };
 
+// Mapeamento de códigos de idioma para nomes
+const Map<String, String> languageCodeToName = {
+  'en': 'English',
+  'es': 'Spanish',
+  'fr': 'French',
+  'de': 'German',
+  'it': 'Italian',
+  'pt': 'Portuguese',
+  'ja': 'Japanese',
+  'ko': 'Korean',
+  'ru': 'Russian',
+  'zhs': 'Simplified Chinese',
+  'zht': 'Traditional Chinese',
+  'he': 'Hebrew',
+  'la': 'Latin',
+  'grc': 'Ancient Greek',
+  'ar': 'Arabic',
+  'sa': 'Sanskrit',
+  'ph': 'Phyrexian',
+  'qya': 'Quenya',
+};
+
 class CardDetailsScreen extends StatefulWidget {
   const CardDetailsScreen({super.key});
 
@@ -34,6 +57,82 @@ class CardDetailsScreen extends StatefulWidget {
 
 class _CardDetailsScreenState extends State<CardDetailsScreen> {
   String? _selectedLanguage; // null = original
+  List<String> _availableLanguages = [];
+  bool _isLoadingLanguages = false;
+  final ScryfallService _scryfallService = ScryfallService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailableLanguages();
+  }
+
+  Future<void> _loadAvailableLanguages() async {
+    final provider = Provider.of<ScannerProvider>(context, listen: false);
+    final card = provider.scannedCard;
+
+    if (card != null) {
+      setState(() {
+        _isLoadingLanguages = true;
+      });
+
+      try {
+        final languages = await _scryfallService.getAvailableLanguagesForCard(
+          card.name,
+        );
+        setState(() {
+          _availableLanguages = languages;
+          _isLoadingLanguages = false;
+        });
+      } catch (e) {
+        print('Erro ao carregar idiomas: $e');
+        setState(() {
+          _isLoadingLanguages = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCardInLanguage(String languageName) async {
+    final provider = Provider.of<ScannerProvider>(context, listen: false);
+    final card = provider.scannedCard;
+
+    if (card != null) {
+      // Encontrar o código do idioma
+      String? languageCode;
+      for (var entry in languageCodeToName.entries) {
+        if (entry.value == languageName) {
+          languageCode = entry.key;
+          break;
+        }
+      }
+
+      if (languageCode != null) {
+        setState(() {
+          _isLoadingLanguages = true;
+        });
+
+        try {
+          final newCard = await _scryfallService.searchCardInLanguage(
+            card.name,
+            languageCode,
+          );
+          if (newCard != null) {
+            provider.updateScannedCard(newCard);
+            setState(() {
+              _selectedLanguage = languageName;
+              _isLoadingLanguages = false;
+            });
+          }
+        } catch (e) {
+          print('Erro ao carregar carta no idioma: $e');
+          setState(() {
+            _isLoadingLanguages = false;
+          });
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +190,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
               child: Column(
                 children: [
                   _buildLanguageSelector(card),
+                  _buildAvailableLanguagesInfo(),
                   _buildCardImage(card),
                   _buildCardInfo(card),
                   _buildCardText(card),
@@ -118,19 +218,29 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       'Foreign names: ${card.foreignNames.map((f) => '${f.language}: ${f.name}').toList()}',
     );
 
+    // Combina idiomas disponíveis via API com foreignNames existentes
+    Set<String> allLanguages = {};
+
+    // Adiciona idiomas disponíveis via API
+    allLanguages.addAll(_availableLanguages);
+
+    // Adiciona idiomas dos foreignNames
+    for (var foreignName in card.foreignNames) {
+      allLanguages.add(foreignName.language);
+    }
+
     final languages = [
-      {'code': null, 'label': 'Original'},
-      ...card.foreignNames.map(
-        (f) => {
-          'code': f.language,
-          'label': languageLabels[f.language] ?? f.language,
+      {'code': null, 'label': 'Original (${card.languageCode ?? 'en'})'},
+      ...allLanguages.map(
+        (language) => {
+          'code': language,
+          'label': languageLabels[language] ?? language,
         },
       ),
     ];
 
     print('Available languages: ${languages.map((l) => l['label']).toList()}');
 
-    // Sempre mostra o dropdown, mesmo se só houver o original
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -139,35 +249,139 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[700]!),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.language, color: Colors.grey, size: 20),
-          const SizedBox(width: 8),
-          const Text(
-            'Idioma:',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
+          Row(
+            children: [
+              const Icon(Icons.language, color: Colors.grey, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Idioma:',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(width: 8),
+              if (_isLoadingLanguages)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
+                onPressed: _isLoadingLanguages
+                    ? null
+                    : () {
+                        _loadAvailableLanguages();
+                      },
+                tooltip: 'Recarregar idiomas disponíveis',
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButton<String?>(
-              value: _selectedLanguage,
-              isExpanded: true,
-              dropdownColor: Colors.grey[850],
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              underline: const SizedBox.shrink(),
-              items: languages.map((lang) {
-                return DropdownMenuItem<String?>(
-                  value: lang['code'],
-                  child: Text(lang['label'] ?? ''),
+          const SizedBox(height: 8),
+          DropdownButton<String?>(
+            value: _selectedLanguage,
+            isExpanded: true,
+            dropdownColor: Colors.grey[850],
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            underline: const SizedBox.shrink(),
+            items: languages.map((lang) {
+              return DropdownMenuItem<String?>(
+                value: lang['code'],
+                child: Text(lang['label'] ?? ''),
+              );
+            }).toList(),
+            onChanged: _isLoadingLanguages
+                ? null
+                : (String? newValue) async {
+                    if (newValue != null) {
+                      await _loadCardInLanguage(newValue);
+                    } else {
+                      // Voltar para a carta original
+                      final provider = Provider.of<ScannerProvider>(
+                        context,
+                        listen: false,
+                      );
+                      final originalCard = provider.scannedCard;
+                      if (originalCard != null) {
+                        // Buscar a carta original em inglês
+                        final englishCard = await _scryfallService
+                            .searchCardInLanguage(originalCard.name, 'en');
+                        if (englishCard != null) {
+                          provider.updateScannedCard(englishCard);
+                        }
+                      }
+                      setState(() {
+                        _selectedLanguage = null;
+                      });
+                    }
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Informações sobre idiomas disponíveis
+  Widget _buildAvailableLanguagesInfo() {
+    if (_availableLanguages.isEmpty && !_isLoadingLanguages) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.blue, size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'Idiomas Disponíveis',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_isLoadingLanguages)
+            const Text(
+              'Carregando idiomas disponíveis...',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: _availableLanguages.map((language) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    languageLabels[language] ?? language,
+                    style: const TextStyle(fontSize: 12, color: Colors.blue),
+                  ),
                 );
               }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedLanguage = newValue;
-                });
-              },
             ),
-          ),
         ],
       ),
     );

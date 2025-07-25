@@ -556,6 +556,7 @@ class ScryfallService {
           printedName: card.printedName,
           printedText: card.printedText,
           printedTypeLine: card.printedTypeLine,
+          languageCode: card.languageCode,
         );
       }
     } catch (e) {
@@ -598,5 +599,94 @@ class ScryfallService {
         .replaceAll(RegExp(r'[^\w\s\-\.]'), ' ') // Remove caracteres especiais
         .replaceAll(RegExp(r'\s+'), ' ') // Remove espaços múltiplos
         .trim();
+  }
+
+  /// Busca todos os idiomas disponíveis para uma carta específica
+  Future<List<String>> getAvailableLanguagesForCard(String cardName) async {
+    try {
+      print('Buscando idiomas disponíveis para: $cardName'); // Debug
+
+      String cleanName = _cleanCardName(cardName);
+
+      // Busca todos os prints da carta usando unique=prints
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cards/search?q=!"$cleanName"&unique=prints'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('Status da resposta idiomas: ${response.statusCode}'); // Debug
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final List<dynamic> cards = jsonData['data'] ?? [];
+
+        // Coleta todos os códigos de idioma únicos
+        Set<String> languageCodes = {};
+        for (var card in cards) {
+          if (card['lang'] != null) {
+            languageCodes.add(card['lang']);
+          }
+        }
+
+        // Converte códigos para nomes completos
+        List<String> languageNames = languageCodes
+            .map((code) => _getLanguageName(code))
+            .toList();
+
+        print('Idiomas encontrados: $languageNames'); // Debug
+        return languageNames;
+      } else {
+        print(
+          'Erro ao buscar idiomas: ${response.statusCode} - ${response.body}',
+        ); // Debug
+      }
+    } catch (e) {
+      print('Erro ao buscar idiomas disponíveis: $e');
+    }
+    return [];
+  }
+
+  /// Busca uma carta em um idioma específico
+  Future<MTGCard?> searchCardInLanguage(
+    String cardName,
+    String languageCode,
+  ) async {
+    try {
+      print(
+        'Buscando carta em idioma específico: $cardName ($languageCode)',
+      ); // Debug
+
+      String cleanName = _cleanCardName(cardName);
+
+      // Busca todos os prints da carta
+      final response = await http.get(
+        Uri.parse('$_baseUrl/cards/search?q=!"$cleanName"&unique=prints'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final List<dynamic> cards = jsonData['data'] ?? [];
+
+        // Encontra a carta no idioma específico
+        for (var cardData in cards) {
+          if (cardData['lang'] == languageCode) {
+            print(
+              'Carta encontrada no idioma $languageCode: ${cardData['name']}',
+            ); // Debug
+            return MTGCard.fromJson(cardData);
+          }
+        }
+
+        print('Carta não encontrada no idioma $languageCode'); // Debug
+      } else {
+        print(
+          'Erro ao buscar carta em idioma: ${response.statusCode} - ${response.body}',
+        ); // Debug
+      }
+    } catch (e) {
+      print('Erro ao buscar carta em idioma específico: $e');
+    }
+    return null;
   }
 }

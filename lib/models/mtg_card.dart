@@ -81,6 +81,8 @@ class MTGCard {
   final String? printedName;
   final String? printedText;
   final String? printedTypeLine;
+  // Código do idioma da carta
+  final String? languageCode;
 
   MTGCard({
     required this.id,
@@ -138,6 +140,8 @@ class MTGCard {
     this.printedName,
     this.printedText,
     this.printedTypeLine,
+    // Código do idioma da carta
+    this.languageCode,
   });
 
   factory MTGCard.fromJson(Map<String, dynamic> json) {
@@ -227,6 +231,8 @@ class MTGCard {
       printedName: json['printed_name'],
       printedText: json['printed_text'],
       printedTypeLine: json['printed_type_line'],
+      // Código do idioma da carta
+      languageCode: json['lang'],
     );
   }
 
@@ -288,6 +294,8 @@ class MTGCard {
       'printed_name': printedName,
       'printed_text': printedText,
       'printed_type_line': printedTypeLine,
+      // Código do idioma da carta
+      'lang': languageCode,
     };
   }
 

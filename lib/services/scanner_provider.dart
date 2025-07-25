@@ -264,6 +264,14 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Atualiza a carta escaneada (útil para mudança de idioma)
+  void updateScannedCard(MTGCard newCard) {
+    _scannedCard = newCard;
+    _errorMessage = null;
+    print('Carta atualizada: ${newCard.name}'); // Debug
+    notifyListeners();
+  }
+
   /// Alterna entre câmeras
   Future<void> switchCamera() async {
     if (_isCameraInitialized) {
