@@ -535,7 +535,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.7,
+          childAspectRatio: 0.7176,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
@@ -558,7 +558,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       onTap: () => _onCardTap(card),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.3),
@@ -568,17 +568,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(7),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Imagem da carta
-              Expanded(
-                flex: 4,
+              Container(
+                color: Colors.grey[900],
                 child: card.imageUrlNormal != null
                     ? Image.network(
                         card.imageUrlNormal!,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
                           return Container(
@@ -622,70 +622,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         ),
                       ),
               ),
-
-              // Informações da carta
-              Expanded(
-                flex: 1,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.grey[850]),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Nome da carta
-                      Text(
-                        card.name,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      // Set e raridade
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (card.setName != null)
-                            Expanded(
-                              child: Text(
-                                card.setName!,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[400],
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          if (card.rarity != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getRarityColor(card.rarity!),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                card.rarity!.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -702,20 +638,5 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         ),
       ),
     );
-  }
-
-  Color _getRarityColor(String rarity) {
-    switch (rarity.toLowerCase()) {
-      case 'common':
-        return Colors.grey;
-      case 'uncommon':
-        return Colors.green;
-      case 'rare':
-        return Colors.blue;
-      case 'mythic':
-        return Colors.orange;
-      default:
-        return Colors.grey;
-    }
   }
 }
