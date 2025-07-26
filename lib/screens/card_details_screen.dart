@@ -380,6 +380,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                   _buildCardImageWithSwipe(card),
                   _buildCardInfo(card),
                   _buildCardText(card),
+                  _buildCardFlavorText(card),
                   _buildAdditionalInfo(card),
                   _buildCardIdentifiers(card),
                   _buildCardLegalities(card),
@@ -481,13 +482,18 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     );
   }
 
-  // Métodos auxiliares para pegar nome, tipo e texto conforme idioma
+  // Métodos auxiliares para pegar informações da carta conforme idioma
   String _getCardName(MTGCard card) {
     if (_selectedLanguage == null) return card.name;
 
     // Se o idioma selecionado é inglês, usar os campos originais
     if (_selectedLanguage == 'English') {
       return card.name;
+    }
+
+    // Primeiro, tentar usar os campos printed se disponíveis
+    if (card.printedName != null && card.printedName!.isNotEmpty) {
+      return card.printedName!;
     }
 
     // Buscar nos foreignNames
@@ -510,6 +516,11 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       return card.typeLine;
     }
 
+    // Primeiro, tentar usar os campos printed se disponíveis
+    if (card.printedTypeLine != null && card.printedTypeLine!.isNotEmpty) {
+      return card.printedTypeLine!;
+    }
+
     // Buscar nos foreignNames
     try {
       final f = card.foreignNames.firstWhere(
@@ -530,6 +541,11 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       return card.oracleText;
     }
 
+    // Primeiro, tentar usar os campos printed se disponíveis
+    if (card.printedText != null && card.printedText!.isNotEmpty) {
+      return card.printedText!;
+    }
+
     // Buscar nos foreignNames
     try {
       final f = card.foreignNames.firstWhere(
@@ -540,6 +556,21 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       // Se não encontrar, usar o texto original
       return card.oracleText;
     }
+  }
+
+  // Método para obter o nome do set (sempre usa o original pois não está em foreignNames)
+  String? _getCardSetName(MTGCard card) {
+    return card.setName;
+  }
+
+  // Método para obter o nome do artista (sempre usa o original pois não está em foreignNames)
+  String? _getCardArtist(MTGCard card) {
+    return card.artist;
+  }
+
+  // Método para obter o flavor text (sempre usa o original pois não está em foreignNames)
+  String? _getCardFlavorText(MTGCard card) {
+    return card.flavorText;
   }
 
   // Widget para navegação entre prints
@@ -842,18 +873,18 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           ],
 
           // Set
-          if (card.setName != null) ...[
+          if (_getCardSetName(card) != null) ...[
             Text(
-              'Set: ${card.setName}',
+              'Set: ${_getCardSetName(card)}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 8),
           ],
 
           // Artista
-          if (card.artist != null) ...[
+          if (_getCardArtist(card) != null) ...[
             Text(
-              'Artista: ${card.artist}',
+              'Artista: ${_getCardArtist(card)}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
@@ -899,6 +930,52 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
               fontSize: 14,
               height: 1.5,
               color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFlavorText(MTGCard card) {
+    final flavorText = _getCardFlavorText(card);
+    if (flavorText == null || flavorText.isEmpty)
+      return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Texto de Sabor',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            flavorText,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
