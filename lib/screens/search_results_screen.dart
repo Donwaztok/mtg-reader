@@ -25,11 +25,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   bool _hasMorePages = true;
   final ScrollController _scrollController = ScrollController();
 
+  // Controle da nova busca
+  final TextEditingController _searchController = TextEditingController();
+  bool _isNewSearchLoading = false;
+  String _currentQuery = '';
+  bool _showSearchBox = false;
+
   @override
   void initState() {
     super.initState();
     print('🎬 [SearchResults] initState chamado');
     print('🎬 [SearchResults] Query: "${widget.searchQuery}"');
+    _currentQuery = widget.searchQuery;
     print('🎬 [SearchResults] Adicionando listener de scroll');
     _scrollController.addListener(_onScroll);
     print('🎬 [SearchResults] Iniciando carregamento inicial');
@@ -39,6 +46,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -58,7 +66,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   Future<void> _loadSearchResults() async {
     print('🚀 [SearchResults] Iniciando _loadSearchResults');
-    print('🚀 [SearchResults] Query: "${widget.searchQuery}"');
+    print('🚀 [SearchResults] Query: "$_currentQuery"');
     print('🚀 [SearchResults] Página atual: $_currentPage');
     print('🚀 [SearchResults] isLoading: $_isLoading');
 
@@ -76,7 +84,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     try {
       final cards = await _scryfallService.searchCards(
-        widget.searchQuery,
+        _currentQuery,
         page: _currentPage,
         unique: 'cards', // Remove duplicatas de gameplay
         order: 'name', // Ordena por nome
@@ -141,7 +149,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       print('📄 [SearchResults] Carregando página $nextPage...');
 
       final moreCards = await _scryfallService.searchCards(
-        widget.searchQuery,
+        _currentQuery,
         page: nextPage,
         unique: 'cards',
         order: 'name',
@@ -189,8 +197,59 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _currentPage = 1;
       _hasMorePages = true;
       _cards.clear();
+      _currentQuery = widget.searchQuery; // Reset para a query original
     });
     await _loadSearchResults();
+  }
+
+  Future<void> _performNewSearch() async {
+    final newQuery = _searchController.text.trim();
+    if (newQuery.isEmpty) return;
+
+    setState(() {
+      _isNewSearchLoading = true;
+      _currentPage = 1;
+      _hasMorePages = true;
+      _cards.clear();
+      _errorMessage = null;
+    });
+
+    try {
+      final cards = await _scryfallService.searchCards(
+        newQuery,
+        page: 1,
+        unique: 'cards',
+        order: 'name',
+        dir: 'asc',
+      );
+
+      setState(() {
+        _cards = cards;
+        _isNewSearchLoading = false;
+        _hasMorePages = cards.length >= 175;
+        _showSearchBox = false; // Fecha a caixinha de busca
+      });
+
+      // Atualizar a query da busca
+      _currentQuery = newQuery;
+
+      // Limpar o campo de busca
+      _searchController.clear();
+
+      // Focar no scroll para mostrar os resultados
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao buscar cartas: $e';
+        _isNewSearchLoading = false;
+      });
+    }
   }
 
   void _onCardTap(MTGCard card) {
@@ -209,66 +268,151 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       data: ThemeData.dark(),
       child: Scaffold(
         backgroundColor: Colors.grey[900],
-        appBar: AppBar(
-          title: Text(
-            'Resultados da Busca',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          backgroundColor: Colors.deepPurple,
-          elevation: 0,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              onPressed: _refreshResults,
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            // Header com informações da busca
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.deepPurple.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Busca: "${widget.searchQuery}"',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header customizado
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.1),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.deepPurple.withOpacity(0.3),
+                      width: 1,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_cards.length} cartas encontradas',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Barra superior com botões
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          tooltip: 'Voltar',
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.refresh, color: Colors.white),
+                          onPressed: _refreshResults,
+                          tooltip: 'Recarregar',
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _showSearchBox ? Icons.close : Icons.search,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _showSearchBox = !_showSearchBox;
+                              if (!_showSearchBox) {
+                                _searchController.clear();
+                              }
+                            });
+                          },
+                          tooltip: _showSearchBox
+                              ? 'Fechar busca'
+                              : 'Nova busca',
+                        ),
+                      ],
+                    ),
 
-            // Conteúdo principal
-            Expanded(child: _buildContent()),
-          ],
+                    // Informações da busca atual
+                    Text(
+                      'Busca: "$_currentQuery"',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_cards.length} cartas encontradas',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    ),
+
+                    // Caixinha de busca (condicional)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      height: _showSearchBox ? 80 : 0,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 300),
+                        opacity: _showSearchBox ? 1.0 : 0.0,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: InputDecoration(
+                                      hintText: 'Nova busca...',
+                                      hintStyle: TextStyle(
+                                        color: Colors.grey[400],
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.grey[850],
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                      suffixIcon: _isNewSearchLoading
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: Padding(
+                                                padding: EdgeInsets.all(8.0),
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(Colors.deepPurple),
+                                                ),
+                                              ),
+                                            )
+                                          : IconButton(
+                                              icon: const Icon(
+                                                Icons.search,
+                                                color: Colors.deepPurple,
+                                              ),
+                                              onPressed: _performNewSearch,
+                                            ),
+                                    ),
+                                    onSubmitted: (_) => _performNewSearch(),
+                                    autofocus:
+                                        true, // Foca automaticamente quando abre
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Conteúdo principal
+              Expanded(child: _buildContent()),
+            ],
+          ),
         ),
       ),
     );
