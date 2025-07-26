@@ -57,7 +57,7 @@ const Map<String, String> languageCodeToFlag = {
   'fr': '🇫🇷',
   'de': '🇩🇪',
   'it': '🇮🇹',
-  'pt': '🇵🇹',
+  'pt': '🇧🇷',
   'ja': '🇯🇵',
   'ko': '🇰🇷',
   'ru': '🇷🇺',
@@ -366,10 +366,11 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                   ),
                   padding: EdgeInsets.only(
                     top: MediaQuery.of(context).padding.top + 8,
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
+                    left: 8,
+                    right: 8,
+                    bottom: 8,
                   ),
+                  margin: const EdgeInsets.only(bottom: 16),
                   child: Row(
                     children: [
                       IconButton(
