@@ -85,6 +85,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   // Novas variáveis para múltiplas prints
   List<MTGCard> _allPrints = [];
   int _currentPrintIndex = 0;
+  final PageController _pageController = PageController();
 
   // Cache organizado por idioma
   final Map<String, List<MTGCard>> _printsByLanguage = {};
@@ -98,6 +99,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
   @override
   void dispose() {
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -262,6 +264,15 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           final provider = Provider.of<ScannerProvider>(context, listen: false);
           provider.updateScannedCard(printsInLanguage[0]);
 
+          // Animar para a primeira página
+          if (_pageController.hasClients) {
+            _pageController.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+
           print(
             'Mudou para idioma $languageName - ${printsInLanguage.length} prints disponíveis',
           );
@@ -334,26 +345,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildCardImage(card),
-                        _buildPrintsNavigation(),
-                        _buildCardInfo(card),
-                        _buildCardText(card),
-                        _buildCardFlavorText(card),
-                        _buildAdditionalInfo(card),
-                        _buildCardIdentifiers(card),
-                        _buildCardLegalities(card),
-                        _buildCardPrices(card),
-                        _buildCardLinks(card),
-                        _buildCardMetadata(card),
-                        _buildActionButtons(context, provider),
-                      ],
-                    ),
-                  ),
-                ),
+                Expanded(child: _buildCardPageView(card, provider)),
               ],
             ),
           );
@@ -550,6 +542,62 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     return card.flavorText;
   }
 
+  // Widget para navegação por gestos entre prints
+  Widget _buildCardPageView(MTGCard card, ScannerProvider provider) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildCardImagePageView(),
+          _buildPrintsNavigation(),
+          _buildCardInfo(card),
+          _buildCardText(card),
+          _buildCardFlavorText(card),
+          _buildAdditionalInfo(card),
+          _buildCardIdentifiers(card),
+          _buildCardLegalities(card),
+          _buildCardPrices(card),
+          _buildCardLinks(card),
+          _buildCardMetadata(card),
+          _buildActionButtons(context, provider),
+        ],
+      ),
+    );
+  }
+
+  // Widget para paginação apenas da imagem da carta
+  Widget _buildCardImagePageView() {
+    if (_currentLanguagePrints.isEmpty) {
+      return _buildCardImage(
+        Provider.of<ScannerProvider>(context, listen: false).scannedCard!,
+      );
+    }
+
+    return SizedBox(
+      height: 600,
+      child: PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() {
+            _currentPrintIndex = index;
+          });
+          // Atualizar o provider com a nova carta
+          if (index < _currentLanguagePrints.length) {
+            final provider = Provider.of<ScannerProvider>(
+              context,
+              listen: false,
+            );
+            provider.updateScannedCard(_currentLanguagePrints[index]);
+          }
+        },
+        itemCount: _currentLanguagePrints.length,
+        itemBuilder: (context, index) {
+          final currentCard = _currentLanguagePrints[index];
+          return _buildCardImage(currentCard);
+        },
+      ),
+    );
+  }
+
   // Widget para navegação entre prints
   Widget _buildPrintsNavigation() {
     if (_currentLanguagePrints.isEmpty) return const SizedBox.shrink();
@@ -607,32 +655,34 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   }
 
   Widget _buildCardImage(MTGCard card) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: card.imageUrlNormal != null
-          ? Image.network(
-              card.imageUrlNormal!,
-              fit: BoxFit.contain,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 300,
-                  color: Colors.grey[800],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                          : null,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: card.imageUrlNormal != null
+            ? Image.network(
+                card.imageUrlNormal!,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: Colors.grey[800],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
                     ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return _buildCardNotAvailable();
-              },
-            )
-          : _buildCardNotAvailable(),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildCardNotAvailable();
+                },
+              )
+            : _buildCardNotAvailable(),
+      ),
     );
   }
 
