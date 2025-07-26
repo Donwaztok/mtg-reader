@@ -457,12 +457,15 @@ class ScryfallService {
       if (unique != null) params['unique'] = unique;
       if (order != null) params['order'] = order;
       if (dir != null) params['dir'] = dir;
-      if (includeExtras != null)
+      if (includeExtras != null) {
         params['include_extras'] = includeExtras.toString();
-      if (includeMultilingual != null)
+      }
+      if (includeMultilingual != null) {
         params['include_multilingual'] = includeMultilingual.toString();
-      if (includeVariations != null)
+      }
+      if (includeVariations != null) {
         params['include_variations'] = includeVariations.toString();
+      }
       if (page != null) params['page'] = page.toString();
 
       print('🔧 [ScryfallService] Parâmetros construídos: $params');
