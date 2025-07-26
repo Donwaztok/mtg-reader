@@ -85,8 +85,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   // Novas variáveis para múltiplas prints
   List<MTGCard> _allPrints = [];
   int _currentPrintIndex = 0;
-  bool _isLoadingPrints = false;
-  final PageController _pageController = PageController();
 
   // Cache organizado por idioma
   final Map<String, List<MTGCard>> _printsByLanguage = {};
@@ -100,7 +98,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -109,10 +106,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     final card = provider.scannedCard;
 
     if (card != null) {
-      setState(() {
-        _isLoadingPrints = true;
-      });
-
       try {
         // Usar a URL exata que você mencionou para buscar todas as prints
         final response = await http.get(
@@ -143,7 +136,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             _allPrints = prints;
             _currentLanguagePrints = _getCurrentLanguagePrints();
             _currentPrintIndex = 0;
-            _isLoadingPrints = false;
           });
 
           // Se não há idioma selecionado, selecionar o primeiro disponível
@@ -164,52 +156,10 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           print('Organizadas por idioma: ${_printsByLanguage.keys.toList()}');
         } else {
           print('Erro ao carregar prints: ${response.statusCode}');
-          setState(() {
-            _isLoadingPrints = false;
-          });
         }
       } catch (e) {
         print('Erro ao carregar prints: $e');
-        setState(() {
-          _isLoadingPrints = false;
-        });
       }
-    }
-  }
-
-  void _nextPrint() {
-    if (_currentPrintIndex < _currentLanguagePrints.length - 1) {
-      setState(() {
-        _currentPrintIndex++;
-      });
-      _pageController.animateToPage(
-        _currentPrintIndex,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-      _updateProviderWithCurrentPrint();
-    }
-  }
-
-  void _previousPrint() {
-    if (_currentPrintIndex > 0) {
-      setState(() {
-        _currentPrintIndex--;
-      });
-      _pageController.animateToPage(
-        _currentPrintIndex,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-      _updateProviderWithCurrentPrint();
-    }
-  }
-
-  void _updateProviderWithCurrentPrint() {
-    if (_currentLanguagePrints.isNotEmpty &&
-        _currentPrintIndex < _currentLanguagePrints.length) {
-      final provider = Provider.of<ScannerProvider>(context, listen: false);
-      provider.updateScannedCard(_currentLanguagePrints[_currentPrintIndex]);
     }
   }
 
@@ -311,15 +261,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           // Atualizar o provider com a primeira print do idioma
           final provider = Provider.of<ScannerProvider>(context, listen: false);
           provider.updateScannedCard(printsInLanguage[0]);
-
-          // Animar para a primeira página
-          if (_pageController.hasClients) {
-            _pageController.animateToPage(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          }
 
           print(
             'Mudou para idioma $languageName - ${printsInLanguage.length} prints disponíveis',
@@ -613,99 +554,34 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   Widget _buildPrintsNavigation() {
     if (_currentLanguagePrints.isEmpty) return const SizedBox.shrink();
 
+    // Obter a carta atual do provider
+    final provider = Provider.of<ScannerProvider>(context, listen: false);
+    final card = provider.scannedCard;
+
+    if (card == null) return const SizedBox.shrink();
+
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[700]!),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.collections, color: Colors.grey, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Prints Disponíveis:',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+      margin: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          _currentLanguagePrints.length > 10
+              ? 10
+              : _currentLanguagePrints.length,
+          (index) {
+            final isActive = index == _currentPrintIndex;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                gradient: isActive ? _getCardColorGradient(card) : null,
+                color: isActive ? null : Colors.grey[600],
+                shape: BoxShape.circle,
               ),
-              const Spacer(),
-              if (_isLoadingPrints)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                onPressed: _currentPrintIndex > 0 ? _previousPrint : null,
-                icon: const Icon(Icons.chevron_left),
-                style: IconButton.styleFrom(
-                  backgroundColor: _currentPrintIndex > 0
-                      ? Colors.deepPurple
-                      : Colors.grey[700],
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${_currentPrintIndex + 1} de ${_currentLanguagePrints.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed:
-                    _currentPrintIndex < _currentLanguagePrints.length - 1
-                    ? _nextPrint
-                    : null,
-                icon: const Icon(Icons.chevron_right),
-                style: IconButton.styleFrom(
-                  backgroundColor:
-                      _currentPrintIndex < _currentLanguagePrints.length - 1
-                      ? Colors.deepPurple
-                      : Colors.grey[700],
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Indicadores de prints
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _currentLanguagePrints.length > 10
-                  ? 10
-                  : _currentLanguagePrints.length,
-              (index) {
-                final isActive = index == _currentPrintIndex;
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isActive ? Colors.deepPurple : Colors.grey[600],
-                    shape: BoxShape.circle,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
