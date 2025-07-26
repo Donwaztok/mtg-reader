@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
-import '../services/scryfall_service.dart';
 
 const Map<String, String> languageLabels = {
   'English': 'Inglês',
@@ -51,6 +50,28 @@ const Map<String, String> languageCodeToName = {
   'qya': 'Quenya',
 };
 
+// Mapeamento de códigos de idioma para emojis de bandeiras
+const Map<String, String> languageCodeToFlag = {
+  'en': '🇺🇸',
+  'es': '🇪🇸',
+  'fr': '🇫🇷',
+  'de': '🇩🇪',
+  'it': '🇮🇹',
+  'pt': '🇵🇹',
+  'ja': '🇯🇵',
+  'ko': '🇰🇷',
+  'ru': '🇷🇺',
+  'zhs': '🇨🇳',
+  'zht': '🇹🇼',
+  'he': '🇮🇱',
+  'la': '🇻🇦',
+  'grc': '🇬🇷',
+  'ar': '🇸🇦',
+  'sa': '🇮🇳',
+  'ph': '⚫',
+  'qya': '🌍',
+};
+
 class CardDetailsScreen extends StatefulWidget {
   const CardDetailsScreen({super.key});
 
@@ -60,8 +81,6 @@ class CardDetailsScreen extends StatefulWidget {
 
 class _CardDetailsScreenState extends State<CardDetailsScreen> {
   String? _selectedLanguage; // null = original
-  bool _isLoadingLanguages = false;
-  final ScryfallService _scryfallService = ScryfallService();
 
   // Novas variáveis para múltiplas prints
   List<MTGCard> _allPrints = [];
@@ -256,10 +275,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   }
 
   Future<void> _loadCardInLanguage(String languageName) async {
-    setState(() {
-      _isLoadingLanguages = true;
-    });
-
     try {
       // Encontrar o código do idioma
       String? languageCode;
@@ -291,7 +306,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             _selectedLanguage = languageName;
             _currentLanguagePrints = printsInLanguage;
             _currentPrintIndex = 0;
-            _isLoadingLanguages = false;
           });
 
           // Atualizar o provider com a primeira print do idioma
@@ -314,9 +328,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       }
     } catch (e) {
       print('Erro ao carregar carta no idioma: $e');
-      setState(() {
-        _isLoadingLanguages = false;
-      });
     }
   }
 
@@ -346,50 +357,62 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
           return Scaffold(
             backgroundColor: Colors.grey[900],
-            appBar: AppBar(
-              title: Text(
-                _getCardName(card),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            body: Column(
+              children: [
+                // Barra personalizada com botão de voltar e dropdown de idioma
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: _getCardColorGradient(card),
+                  ),
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _getCardName(card),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 18,
+                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      _buildCompactLanguageSelector(),
+                    ],
+                  ),
                 ),
-              ),
-              flexibleSpace: Container(
-                decoration: BoxDecoration(
-                  gradient: _getCardColorGradient(card),
-                ),
-              ),
-              elevation: 0,
-              centerTitle: true,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () => _showShareDialog(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _buildCardImage(card),
+                        _buildPrintsNavigation(),
+                        _buildCardInfo(card),
+                        _buildCardText(card),
+                        _buildCardFlavorText(card),
+                        _buildAdditionalInfo(card),
+                        _buildCardIdentifiers(card),
+                        _buildCardLegalities(card),
+                        _buildCardPrices(card),
+                        _buildCardLinks(card),
+                        _buildCardMetadata(card),
+                        _buildActionButtons(context, provider),
+                      ],
+                    ),
+                  ),
                 ),
               ],
-            ),
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildPrintsNavigation(),
-                  _buildLanguageSelector(card),
-                  _buildCardImageWithSwipe(card),
-                  _buildCardInfo(card),
-                  _buildCardText(card),
-                  _buildCardFlavorText(card),
-                  _buildAdditionalInfo(card),
-                  _buildCardIdentifiers(card),
-                  _buildCardLegalities(card),
-                  _buildCardPrices(card),
-                  _buildCardLinks(card),
-                  _buildCardMetadata(card),
-                  _buildActionButtons(context, provider),
-                ],
-              ),
             ),
           );
         },
@@ -397,14 +420,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     );
   }
 
-  // Dropdown de idiomas
-  Widget _buildLanguageSelector(MTGCard card) {
-    // Debug: verificar se foreignNames está sendo carregado
-    print('Foreign names count: ${card.foreignNames.length}');
-    print(
-      'Foreign names: ${card.foreignNames.map((f) => '${f.language}: ${f.name}').toList()}',
-    );
-
+  // Dropdown compacto de idiomas com bandeiras
+  Widget _buildCompactLanguageSelector() {
     // Usar apenas os idiomas que são keys do map
     Set<String> allLanguages = {};
 
@@ -419,65 +436,83 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       }
     }
 
-    final languages = allLanguages
-        .map((language) => {'code': language, 'label': language})
-        .toList();
-    final values = languages.map((l) => l['label']).toList();
+    final languages = allLanguages.toList();
+
+    if (languages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Encontrar o idioma atual
+    String currentLanguage = _selectedLanguage ?? languages.first;
+
+    // Encontrar o código do idioma para obter a bandeira
+    String? currentLanguageCode;
+    for (var entry in languageLabels.entries) {
+      if (entry.value == currentLanguage) {
+        final englishName = entry.key;
+        for (var codeEntry in languageCodeToName.entries) {
+          if (codeEntry.value == englishName) {
+            currentLanguageCode = codeEntry.key;
+            break;
+          }
+        }
+        break;
+      }
+    }
 
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[850],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[700]!),
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: PopupMenuButton<String>(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.language, color: Colors.grey, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Idioma:',
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                languageCodeToFlag[currentLanguageCode] ?? '🌍',
+                style: const TextStyle(fontSize: 16),
               ),
-              const SizedBox(width: 8),
-              if (_isLoadingLanguages)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              const Spacer(),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
             ],
           ),
-          const SizedBox(height: 8),
-          DropdownButton<String?>(
-            value:
-                _selectedLanguage != null && values.contains(_selectedLanguage)
-                ? _selectedLanguage
-                : (values.isNotEmpty ? values.first : null),
-            isExpanded: true,
-            dropdownColor: Colors.grey[850],
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            underline: const SizedBox.shrink(),
-            items: languages.map((lang) {
-              return DropdownMenuItem<String?>(
-                value: lang['label'],
-                child: Text(lang['label'] ?? ''),
-              );
-            }).toList(),
-            onChanged: _isLoadingLanguages
-                ? null
-                : (String? newValue) async {
-                    if (newValue != null) {
-                      await _loadCardInLanguage(newValue);
-                    }
-                  },
-          ),
-        ],
+        ),
+        itemBuilder: (context) => languages.map((language) {
+          // Encontrar o código do idioma para obter a bandeira
+          String? languageCode;
+          for (var entry in languageLabels.entries) {
+            if (entry.value == language) {
+              final englishName = entry.key;
+              for (var codeEntry in languageCodeToName.entries) {
+                if (codeEntry.value == englishName) {
+                  languageCode = codeEntry.key;
+                  break;
+                }
+              }
+              break;
+            }
+          }
+
+          return PopupMenuItem<String>(
+            value: language,
+            child: Row(
+              children: [
+                Text(
+                  languageCodeToFlag[languageCode] ?? '🌍',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(width: 8),
+                Text(language, style: const TextStyle(color: Colors.white)),
+              ],
+            ),
+          );
+        }).toList(),
+        onSelected: (String newValue) async {
+          await _loadCardInLanguage(newValue);
+        },
       ),
     );
   }
@@ -674,117 +709,53 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     );
   }
 
-  // Widget para imagem da carta com swipe
-  Widget _buildCardImageWithSwipe(MTGCard card) {
-    if (_currentLanguagePrints.isEmpty) {
-      return _buildCardImage(card);
-    }
-
+  Widget _buildCardNotAvailable() {
     return Container(
-      width: double.infinity,
-      height: 400,
-      margin: const EdgeInsets.all(16),
-      child: PageView.builder(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentPrintIndex = index;
-          });
-          _updateProviderWithCurrentPrint();
-        },
-        itemCount: _currentLanguagePrints.length,
-        itemBuilder: (context, index) {
-          final printCard = _currentLanguagePrints[index];
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            child: _buildCardImage(printCard),
-          );
-        },
+      height: 300,
+      color: Colors.grey[800],
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+            SizedBox(height: 8),
+            Text(
+              'Imagem não disponível',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCardImage(MTGCard card) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: card.imageUrlNormal != null
-            ? Image.network(
-                card.imageUrlNormal!,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 300,
-                    color: Colors.grey[800],
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                            : null,
-                      ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: card.imageUrlNormal != null
+          ? Image.network(
+              card.imageUrlNormal!,
+              fit: BoxFit.contain,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 300,
+                  color: Colors.grey[800],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                          : null,
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 300,
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Imagem não disponível',
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              )
-            : Container(
-                height: 300,
-                color: Colors.grey[800],
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.image_not_supported,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Imagem não disponível',
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    ],
                   ),
-                ),
-              ),
-      ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return _buildCardNotAvailable();
+              },
+            )
+          : _buildCardNotAvailable(),
     );
   }
 
@@ -1540,24 +1511,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       colors: finalColors,
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-    );
-  }
-
-  void _showShareDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Compartilhar'),
-        content: const Text(
-          'Funcionalidade de compartilhamento será implementada em breve.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
     );
   }
 }
