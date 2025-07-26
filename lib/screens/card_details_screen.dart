@@ -609,28 +609,33 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     if (card == null) return const SizedBox.shrink();
 
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          _currentLanguagePrints.length > 10
-              ? 10
-              : _currentLanguagePrints.length,
-          (index) {
-            final isActive = index == _currentPrintIndex;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                gradient: isActive ? _getCardColorGradient(card) : null,
-                color: isActive ? null : Colors.grey[600],
-                shape: BoxShape.circle,
+      margin: const EdgeInsets.only(top: 0),
+      child: _currentLanguagePrints.length <= 20
+          ? Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 4, // Espaçamento horizontal entre as bolinhas
+              runSpacing: 8, // Espaçamento vertical entre as linhas
+              children: List.generate(_currentLanguagePrints.length, (index) {
+                final isActive = index == _currentPrintIndex;
+                return Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    gradient: isActive ? _getCardColorGradient(card) : null,
+                    color: isActive ? null : Colors.grey[600],
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            )
+          : Text(
+              '${_currentPrintIndex + 1} de ${_currentLanguagePrints.length}',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          },
-        ),
-      ),
+            ),
     );
   }
 
