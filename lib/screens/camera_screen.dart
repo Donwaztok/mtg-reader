@@ -323,7 +323,12 @@ class _CameraScreenState extends State<CameraScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const CardDetailsScreen()),
+          MaterialPageRoute(
+            builder: (context) => CardDetailsScreen(
+              preferredLanguage: provider.detectedLanguage,
+              preferredEdition: provider.detectedEdition,
+            ),
+          ),
         );
       }
     } else if (provider.errorMessage != null && mounted) {

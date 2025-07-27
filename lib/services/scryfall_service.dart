@@ -122,6 +122,52 @@ class ScryfallService {
     return null;
   }
 
+  /// Busca uma carta pelo collector number, set e linguagem específica
+  /// Usa o endpoint: /cards/:code/:number(/:lang)
+  Future<MTGCard?> searchCardByCollectorNumberWithLanguage(
+    String setCode,
+    String collectorNumber,
+    String languageCode,
+  ) async {
+    try {
+      Logger.debug(
+        'Buscando carta por collector number com linguagem: $setCode/$collectorNumber/$languageCode',
+      ); // Debug
+
+      String cleanSetCode = setCode.toUpperCase().trim();
+      String cleanNumber = collectorNumber.trim();
+      String cleanLanguageCode = languageCode.toLowerCase().trim();
+
+      final response = await http.get(
+        Uri.parse(
+          '$_baseUrl/cards/$cleanSetCode/$cleanNumber/$cleanLanguageCode',
+        ),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      Logger.debug(
+        'Status da resposta collector+lang: ${response.statusCode}',
+      ); // Debug
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        Logger.debug(
+          'Carta encontrada por collector+lang: ${jsonData['name']} (${jsonData['lang']})',
+        ); // Debug
+        return MTGCard.fromJson(jsonData);
+      } else {
+        Logger.debug(
+          'Erro na busca por collector+lang: ${response.statusCode} - ${response.body}',
+        ); // Debug
+      }
+    } catch (e) {
+      Logger.debug(
+        'Erro ao buscar carta por collector number com linguagem: $e',
+      );
+    }
+    return null;
+  }
+
   /// Busca uma carta usando dados bulk (mais eficiente e inclui cartas em português)
   Future<MTGCard?> searchCardInBulkData(
     String cardName,

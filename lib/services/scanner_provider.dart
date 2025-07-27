@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../models/mtg_card.dart';
+import '../screens/card_details_screen.dart';
 import '../utils/logger.dart';
 import 'camera_service.dart';
 import 'ocr_service.dart';
@@ -25,6 +26,11 @@ class ScannerProvider extends ChangeNotifier {
   List<String> _recognizedText = [];
   Map<String, String> _extractedInfo = {};
 
+  // Informações extraídas para seleção automática
+  String? _detectedLanguage;
+  String? _detectedEdition;
+  String? _originalCardName; // Nome original da carta (em inglês)
+
   // Getters
   bool get isCameraInitialized => _isCameraInitialized;
   bool get isScanning => _isScanning;
@@ -33,6 +39,9 @@ class ScannerProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<String> get recognizedText => _recognizedText;
   Map<String, String> get extractedInfo => _extractedInfo;
+  String? get detectedLanguage => _detectedLanguage;
+  String? get detectedEdition => _detectedEdition;
+  String? get originalCardName => _originalCardName;
   CameraService get cameraService => _cameraService;
 
   /// Inicializa a câmera
@@ -114,19 +123,47 @@ class ScannerProvider extends ChangeNotifier {
       Logger.debug('Type Line: ${_extractedInfo['typeLine']}');
       Logger.debug('=====================================');
 
-      // Estratégia de busca otimizada usando dados bulk
+      // Processar informações de linguagem e edição para seleção automática
+      _processDetectedLanguageAndEdition();
+
+      // Estratégia de busca otimizada usando endpoint específico
       String? setCode = _extractedInfo['setCode'];
       String? collectorNumber = _extractedInfo['collectorNumber'];
       String? cardName = _extractedInfo['name'];
       String? language = _extractedInfo['language'];
 
-      // Busca usando dados bulk (mais eficiente e inclui cartas em português)
-      _scannedCard = await _scryfallService.searchCardInBulkData(
-        cardName ?? '',
-        setCode,
-        collectorNumber,
-        language: language,
-      );
+      // Primeira tentativa: busca específica por collector number + set + linguagem
+      if (setCode != null && collectorNumber != null && language != null) {
+        Logger.debug(
+          'Tentando busca específica por collector number com linguagem...',
+        );
+        _scannedCard = await _scryfallService
+            .searchCardByCollectorNumberWithLanguage(
+              setCode,
+              collectorNumber,
+              language,
+            );
+      }
+
+      // Segunda tentativa: busca por collector number + set (sem linguagem)
+      if (_scannedCard == null && setCode != null && collectorNumber != null) {
+        Logger.debug('Tentando busca por collector number sem linguagem...');
+        _scannedCard = await _scryfallService.searchCardByCollectorNumber(
+          setCode,
+          collectorNumber,
+        );
+      }
+
+      // Terceira tentativa: busca usando dados bulk (fallback)
+      if (_scannedCard == null) {
+        Logger.debug('Tentando busca usando dados bulk...');
+        _scannedCard = await _scryfallService.searchCardInBulkData(
+          cardName ?? '',
+          setCode,
+          collectorNumber,
+          language: language,
+        );
+      }
 
       if (_scannedCard != null) {
         Logger.debug('Carta encontrada: ${_scannedCard!.name}'); // Debug
@@ -137,6 +174,9 @@ class ScannerProvider extends ChangeNotifier {
         if (setCode != null) searchAttempts.add('set: $setCode');
         if (collectorNumber != null) {
           searchAttempts.add('collector: $collectorNumber');
+        }
+        if (language != null) {
+          searchAttempts.add('linguagem: $language');
         }
 
         _errorMessage =
@@ -416,6 +456,47 @@ class ScannerProvider extends ChangeNotifier {
     if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty) score++;
 
     return score;
+  }
+
+  /// Processa as informações de linguagem e edição detectadas para seleção automática
+  ///
+  /// Este método é chamado após o OCR extrair as informações da carta.
+  /// Ele converte os códigos detectados em nomes legíveis para o usuário:
+  /// - Códigos de linguagem (ex: 'pt', 'en') → Nomes em português (ex: 'Português', 'Inglês')
+  /// - Códigos de set (ex: 'm21', 'thb') → Usados diretamente para busca na API
+  void _processDetectedLanguageAndEdition() {
+    // Processar linguagem detectada
+    String? detectedLanguageCode = _extractedInfo['language'];
+    if (detectedLanguageCode != null && detectedLanguageCode.isNotEmpty) {
+      // Converter código de linguagem para nome em português
+      String? englishName =
+          languageCodeToName[detectedLanguageCode.toLowerCase()];
+      if (englishName != null) {
+        String? portugueseName = languageLabels[englishName];
+        if (portugueseName != null) {
+          _detectedLanguage = portugueseName;
+          Logger.debug(
+            'Linguagem detectada: $_detectedLanguage (código: $detectedLanguageCode)',
+          );
+        }
+      }
+    }
+
+    // Processar edição detectada
+    String? detectedSetCode = _extractedInfo['setCode'];
+    if (detectedSetCode != null && detectedSetCode.isNotEmpty) {
+      // Usar o código do set detectado - a API do Scryfall fornecerá o nome completo
+      _detectedEdition = detectedSetCode.toUpperCase();
+      Logger.debug(
+        'Código do set detectado: $_detectedEdition (código: $detectedSetCode)',
+      );
+    }
+
+    // Armazenar nome original da carta (se disponível)
+    if (_scannedCard != null) {
+      _originalCardName = _scannedCard!.name;
+      Logger.debug('Nome original da carta armazenado: $_originalCardName');
+    }
   }
 
   /// Libera recursos

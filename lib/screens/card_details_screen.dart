@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
 import '../services/scryfall_service.dart';
+import '../utils/logger.dart';
 
 const Map<String, String> languageLabels = {
   'English': 'Inglês',
@@ -73,8 +74,33 @@ const Map<String, String> languageCodeToFlag = {
   'qya': '🌍',
 };
 
+/// Tela de detalhes da carta com suporte a seleção automática de linguagem e edição
+///
+/// Parâmetros opcionais:
+/// - [preferredLanguage]: Nome da linguagem em português (ex: "Português", "Inglês", "Espanhol")
+/// - [preferredEdition]: Nome da edição (ex: "Core Set 2021", "Dominaria United")
+///
+/// Exemplo de uso:
+/// ```dart
+/// Navigator.push(
+///   context,
+///   MaterialPageRoute(
+///     builder: (context) => CardDetailsScreen(
+///       preferredLanguage: "Português",
+///       preferredEdition: "Core Set 2021",
+///     ),
+///   ),
+/// );
+/// ```
 class CardDetailsScreen extends StatefulWidget {
-  const CardDetailsScreen({super.key});
+  final String? preferredLanguage;
+  final String? preferredEdition;
+
+  const CardDetailsScreen({
+    super.key,
+    this.preferredLanguage,
+    this.preferredEdition,
+  });
 
   @override
   State<CardDetailsScreen> createState() => _CardDetailsScreenState();
@@ -82,6 +108,7 @@ class CardDetailsScreen extends StatefulWidget {
 
 class _CardDetailsScreenState extends State<CardDetailsScreen> {
   String? _selectedLanguage; // null = original
+  String? _selectedEdition; // edição selecionada
 
   // Novas variáveis para múltiplas prints
   List<MTGCard> _allPrints = [];
@@ -127,9 +154,13 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       });
 
       try {
+        // Usar o nome original da carta se disponível, senão usar o nome da carta atual
+        String cardNameToSearch = provider.originalCardName ?? card.name;
+        Logger.debug('Buscando prints usando nome: $cardNameToSearch');
+
         // Usar o novo método que carrega todas as prints com paginação
         final prints = await _scryfallService.getAllPrintsForCard(
-          card.name,
+          cardNameToSearch,
           onProgress: (currentPage, totalPages, totalCards) {
             setState(() {
               _loadingProgress = currentPage;
@@ -149,19 +180,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           _isLoadingPrints = false;
         });
 
-        // Se não há idioma selecionado, selecionar o primeiro disponível
-        if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
-          final firstLanguageCode = _printsByLanguage.keys.first;
-          final englishName = languageCodeToName[firstLanguageCode];
-          if (englishName != null) {
-            final portugueseName = languageLabels[englishName];
-            if (portugueseName != null) {
-              setState(() {
-                _selectedLanguage = portugueseName;
-              });
-            }
-          }
-        }
+        // Seleção automática baseada nos parâmetros fornecidos
+        _selectPreferredLanguageAndEdition();
       } catch (e) {
         setState(() {
           _isLoadingPrints = false;
@@ -179,9 +199,12 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
     if (card != null) {
       try {
+        // Usar o nome original da carta se disponível, senão usar o nome da carta atual
+        String cardNameToSearch = provider.originalCardName ?? card.name;
+
         final response = await http.get(
           Uri.parse(
-            'https://api.scryfall.com/cards/search?q=!"${card.name}"&include_multilingual=true&unique=prints',
+            'https://api.scryfall.com/cards/search?q=!"$cardNameToSearch"&include_multilingual=true&unique=prints',
           ),
           headers: {'Content-Type': 'application/json'},
         );
@@ -205,19 +228,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             _currentPrintIndex = 0;
           });
 
-          // Se não há idioma selecionado, selecionar o primeiro disponível
-          if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
-            final firstLanguageCode = _printsByLanguage.keys.first;
-            final englishName = languageCodeToName[firstLanguageCode];
-            if (englishName != null) {
-              final portugueseName = languageLabels[englishName];
-              if (portugueseName != null) {
-                setState(() {
-                  _selectedLanguage = portugueseName;
-                });
-              }
-            }
-          }
+          // Seleção automática baseada nos parâmetros fornecidos
+          _selectPreferredLanguageAndEdition();
         }
       } catch (e) {
         // Se tudo falhar, pelo menos temos a carta original
@@ -240,6 +252,76 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         _printsByLanguage[languageKey] = [];
       }
       _printsByLanguage[languageKey]!.add(print);
+    }
+  }
+
+  // Seleciona automaticamente a linguagem e edição preferidas
+  void _selectPreferredLanguageAndEdition() {
+    if (_printsByLanguage.isEmpty) return;
+
+    // Seleção de linguagem
+    if (widget.preferredLanguage != null) {
+      // Tentar encontrar a linguagem preferida
+      String? targetLanguageCode;
+
+      // Converter nome em português para inglês
+      String? englishName;
+      for (var entry in languageLabels.entries) {
+        if (entry.value == widget.preferredLanguage) {
+          englishName = entry.key;
+          break;
+        }
+      }
+
+      // Converter nome em inglês para código
+      if (englishName != null) {
+        for (var entry in languageCodeToName.entries) {
+          if (entry.value == englishName) {
+            targetLanguageCode = entry.key;
+            break;
+          }
+        }
+      }
+
+      // Se a linguagem preferida existe, selecioná-la
+      if (targetLanguageCode != null &&
+          _printsByLanguage.containsKey(targetLanguageCode)) {
+        _selectedLanguage = widget.preferredLanguage;
+        _currentLanguagePrints = _printsByLanguage[targetLanguageCode]!;
+      }
+    }
+
+    // Se não há linguagem selecionada, selecionar a primeira disponível
+    if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
+      final firstLanguageCode = _printsByLanguage.keys.first;
+      final englishName = languageCodeToName[firstLanguageCode];
+      if (englishName != null) {
+        final portugueseName = languageLabels[englishName];
+        if (portugueseName != null) {
+          _selectedLanguage = portugueseName;
+          _currentLanguagePrints = _printsByLanguage[firstLanguageCode]!;
+        }
+      }
+    }
+
+    // Seleção de edição
+    if (widget.preferredEdition != null && _currentLanguagePrints.isNotEmpty) {
+      // Procurar pela edição preferida
+      for (int i = 0; i < _currentLanguagePrints.length; i++) {
+        final card = _currentLanguagePrints[i];
+        if (card.setName?.toLowerCase() ==
+                widget.preferredEdition!.toLowerCase() ||
+            card.set?.toLowerCase() == widget.preferredEdition!.toLowerCase()) {
+          _selectedEdition = widget.preferredEdition;
+          _currentPrintIndex = i;
+          break;
+        }
+      }
+    }
+
+    // Se não há edição selecionada, usar a primeira
+    if (_selectedEdition == null && _currentLanguagePrints.isNotEmpty) {
+      _currentPrintIndex = 0;
     }
   }
 

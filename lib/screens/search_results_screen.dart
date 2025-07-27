@@ -259,7 +259,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const CardDetailsScreen()),
+      MaterialPageRoute(
+        builder: (context) => CardDetailsScreen(
+          preferredLanguage: provider.detectedLanguage,
+          preferredEdition: provider.detectedEdition,
+        ),
+      ),
     );
   }
 
