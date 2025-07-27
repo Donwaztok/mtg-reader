@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
+
 import '../utils/logger.dart';
 
 class CameraService {

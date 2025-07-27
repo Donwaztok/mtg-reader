@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
+import '../services/scryfall_service.dart';
 
 const Map<String, String> languageLabels = {
   'English': 'Inglês',
@@ -91,9 +92,13 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   final Map<String, List<MTGCard>> _printsByLanguage = {};
   List<MTGCard> _currentLanguagePrints = [];
 
+  // Instância do serviço Scryfall
+  final ScryfallService _scryfallService = ScryfallService();
+
   @override
   void initState() {
     super.initState();
+    // Inicia o carregamento das prints em paralelo
     _loadAllPrints();
   }
 
@@ -108,23 +113,14 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     final card = provider.scannedCard;
 
     if (card != null) {
-      // Usar a URL exata que você mencionou para buscar todas as prints
-      final response = await http.get(
-        Uri.parse(
-          'https://api.scryfall.com/cards/search?q=!"${card.name}"&include_multilingual=true&unique=prints',
-        ),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        final List<dynamic> cardsData = jsonData['data'] ?? [];
-
-        List<MTGCard> prints = [];
-        for (var cardData in cardsData) {
-          final printCard = MTGCard.fromJson(cardData);
-          prints.add(printCard);
-        }
+      try {
+        // Usar o novo método que carrega todas as prints com paginação
+        final prints = await _scryfallService.getAllPrintsForCard(
+          card.name,
+          onProgress: (currentPage, totalPages, totalCards) {
+            // Progresso silencioso - não atualiza a UI
+          },
+        );
 
         // Organizar prints por idioma
         _organizePrintsByLanguage(prints);
@@ -148,6 +144,67 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             }
           }
         }
+      } catch (e) {
+        // Em caso de erro, manter o comportamento anterior como fallback
+        _loadAllPrintsFallback();
+      }
+    }
+  }
+
+  // Método fallback caso o novo método falhe
+  Future<void> _loadAllPrintsFallback() async {
+    final provider = Provider.of<ScannerProvider>(context, listen: false);
+    final card = provider.scannedCard;
+
+    if (card != null) {
+      try {
+        final response = await http.get(
+          Uri.parse(
+            'https://api.scryfall.com/cards/search?q=!"${card.name}"&include_multilingual=true&unique=prints',
+          ),
+          headers: {'Content-Type': 'application/json'},
+        );
+
+        if (response.statusCode == 200) {
+          final jsonData = json.decode(response.body);
+          final List<dynamic> cardsData = jsonData['data'] ?? [];
+
+          List<MTGCard> prints = [];
+          for (var cardData in cardsData) {
+            final printCard = MTGCard.fromJson(cardData);
+            prints.add(printCard);
+          }
+
+          // Organizar prints por idioma
+          _organizePrintsByLanguage(prints);
+
+          setState(() {
+            _allPrints = prints;
+            _currentLanguagePrints = _getCurrentLanguagePrints();
+            _currentPrintIndex = 0;
+          });
+
+          // Se não há idioma selecionado, selecionar o primeiro disponível
+          if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
+            final firstLanguageCode = _printsByLanguage.keys.first;
+            final englishName = languageCodeToName[firstLanguageCode];
+            if (englishName != null) {
+              final portugueseName = languageLabels[englishName];
+              if (portugueseName != null) {
+                setState(() {
+                  _selectedLanguage = portugueseName;
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Se tudo falhar, pelo menos temos a carta original
+        setState(() {
+          _allPrints = [card];
+          _currentLanguagePrints = [card];
+          _currentPrintIndex = 0;
+        });
       }
     }
   }
@@ -302,25 +359,54 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                     bottom: 8,
                   ),
                   margin: const EdgeInsets.only(bottom: 16),
-                  child: Row(
+                  child: Column(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      Expanded(
-                        child: Text(
-                          _getCardName(card),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            fontSize: 18,
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                            ),
+                            onPressed: () => Navigator.pop(context),
                           ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          Expanded(
+                            child: Text(
+                              _getCardName(card),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                fontSize: 18,
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          _buildCompactLanguageSelector(),
+                        ],
                       ),
-                      _buildCompactLanguageSelector(),
+                      // Indicador de prints carregadas
+                      if (_allPrints.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${_allPrints.length} prints carregadas',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

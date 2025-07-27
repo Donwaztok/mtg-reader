@@ -93,7 +93,9 @@ class ScannerProvider extends ChangeNotifier {
       if (imageBytes == null) {
         throw Exception('Falha ao capturar imagem');
       }
-      Logger.debug('Imagem capturada, tamanho: ${imageBytes.length} bytes'); // Debug
+      Logger.debug(
+        'Imagem capturada, tamanho: ${imageBytes.length} bytes',
+      ); // Debug
 
       // Primeira tentativa: Reconhecimento de imagem direto
       Logger.debug('Tentando reconhecimento de imagem...'); // Debug
@@ -166,7 +168,9 @@ class ScannerProvider extends ChangeNotifier {
             'Carta não encontrada: $cardName. Verifique o nome e tente novamente.';
         Logger.debug('Carta não encontrada manualmente: $cardName'); // Debug
       } else {
-        Logger.debug('Carta encontrada manualmente: ${_scannedCard!.name}'); // Debug
+        Logger.debug(
+          'Carta encontrada manualmente: ${_scannedCard!.name}',
+        ); // Debug
       }
     } catch (e) {
       _errorMessage = 'Erro ao buscar carta: $e';
@@ -185,7 +189,9 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      Logger.debug('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
+      Logger.debug(
+        'Buscando carta por nome e set: $cardName ($setCode)',
+      ); // Debug
       _scannedCard = await _scryfallService.searchCardByNameAndSet(
         cardName,
         setCode,
@@ -256,6 +262,7 @@ class ScannerProvider extends ChangeNotifier {
     _errorMessage = null;
     _recognizedText = [];
     _extractedInfo = {};
+
     Logger.debug('Resultados limpos'); // Debug
     notifyListeners();
   }
@@ -344,7 +351,9 @@ class ScannerProvider extends ChangeNotifier {
           continue;
         }
 
-        Logger.debug('📝 Tentativa $attempt - Texto reconhecido: $recognizedText');
+        Logger.debug(
+          '📝 Tentativa $attempt - Texto reconhecido: $recognizedText',
+        );
 
         // Extrai informações da carta
         Map<String, String> extractedInfo = await _ocrService.extractCardInfo(

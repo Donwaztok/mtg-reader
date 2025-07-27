@@ -29,7 +29,9 @@ class ScryfallService {
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        Logger.debug('Carta encontrada com fuzzy: ${jsonData['name']}'); // Debug
+        Logger.debug(
+          'Carta encontrada com fuzzy: ${jsonData['name']}',
+        ); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
         Logger.debug(
@@ -48,7 +50,9 @@ class ScryfallService {
     String setCode,
   ) async {
     try {
-      Logger.debug('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
+      Logger.debug(
+        'Buscando carta por nome e set: $cardName ($setCode)',
+      ); // Debug
 
       String cleanName = _cleanCardName(cardName);
       String cleanSetCode = setCode.toUpperCase().trim();
@@ -58,11 +62,15 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      Logger.debug('Status da resposta nome+set: ${response.statusCode}'); // Debug
+      Logger.debug(
+        'Status da resposta nome+set: ${response.statusCode}',
+      ); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        Logger.debug('Carta encontrada por nome+set: ${jsonData['name']}'); // Debug
+        Logger.debug(
+          'Carta encontrada por nome+set: ${jsonData['name']}',
+        ); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
         Logger.debug(
@@ -93,11 +101,15 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      Logger.debug('Status da resposta collector: ${response.statusCode}'); // Debug
+      Logger.debug(
+        'Status da resposta collector: ${response.statusCode}',
+      ); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        Logger.debug('Carta encontrada por collector: ${jsonData['name']}'); // Debug
+        Logger.debug(
+          'Carta encontrada por collector: ${jsonData['name']}',
+        ); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
         Logger.debug(
@@ -131,7 +143,9 @@ class ScryfallService {
           language: language,
         );
         if (card != null) {
-          Logger.debug('Carta encontrada por collector number: ${card.name}'); // Debug
+          Logger.debug(
+            'Carta encontrada por collector number: ${card.name}',
+          ); // Debug
           return card;
         }
       }
@@ -145,7 +159,9 @@ class ScryfallService {
           language: language,
         );
         if (card != null) {
-          Logger.debug('Carta encontrada por nome e set: ${card.name}'); // Debug
+          Logger.debug(
+            'Carta encontrada por nome e set: ${card.name}',
+          ); // Debug
           return card;
         }
       }
@@ -153,7 +169,9 @@ class ScryfallService {
       // Terceira tentativa: busca por nome apenas
       final card = await _searchService.searchCardByName(cardName);
       if (card != null) {
-        Logger.debug('Carta encontrada por nome em bulk: ${card.name}'); // Debug
+        Logger.debug(
+          'Carta encontrada por nome em bulk: ${card.name}',
+        ); // Debug
         return card;
       }
 
@@ -360,7 +378,9 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      Logger.debug('Status da resposta idiomas: ${response.statusCode}'); // Debug
+      Logger.debug(
+        'Status da resposta idiomas: ${response.statusCode}',
+      ); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -485,14 +505,18 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      Logger.debug('📡 [ScryfallService] Status da resposta: ${response.statusCode}');
+      Logger.debug(
+        '📡 [ScryfallService] Status da resposta: ${response.statusCode}',
+      );
       Logger.debug(
         '📡 [ScryfallService] Tamanho da resposta: ${response.body.length} bytes',
       );
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        Logger.debug('📋 [ScryfallService] Chaves do JSON: ${jsonData.keys.toList()}');
+        Logger.debug(
+          '📋 [ScryfallService] Chaves do JSON: ${jsonData.keys.toList()}',
+        );
 
         final List<dynamic> cardsData = jsonData['data'] ?? [];
         Logger.debug(
@@ -500,7 +524,9 @@ class ScryfallService {
         );
 
         if (cardsData.isEmpty) {
-          Logger.debug('⚠️ [ScryfallService] Nenhuma carta encontrada no array data');
+          Logger.debug(
+            '⚠️ [ScryfallService] Nenhuma carta encontrada no array data',
+          );
           Logger.debug(
             '📄 [ScryfallService] Conteúdo da resposta: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}...',
           );
@@ -536,7 +562,9 @@ class ScryfallService {
         return [];
       } else {
         Logger.debug('❌ [ScryfallService] Erro na API: ${response.statusCode}');
-        Logger.debug('📄 [ScryfallService] Corpo da resposta: ${response.body}');
+        Logger.debug(
+          '📄 [ScryfallService] Corpo da resposta: ${response.body}',
+        );
         throw Exception(
           'Erro na busca: ${response.statusCode} - ${response.body}',
         );
@@ -545,6 +573,131 @@ class ScryfallService {
       Logger.debug('💥 [ScryfallService] Erro ao buscar cartas: $e');
       Logger.debug('💥 [ScryfallService] Stack trace: ${StackTrace.current}');
       throw Exception('Erro ao buscar cartas: $e');
+    }
+  }
+
+  /// Busca TODAS as prints de uma carta com paginação automática
+  /// Retorna todas as cartas de uma vez para navegação offline
+  Future<List<MTGCard>> getAllPrintsForCard(
+    String cardName, {
+    Function(int currentPage, int totalPages, int totalCards)? onProgress,
+  }) async {
+    try {
+      Logger.debug(
+        '🔄 [ScryfallService] Iniciando busca de TODAS as prints para: $cardName',
+      );
+
+      String cleanName = _cleanCardName(cardName);
+      List<MTGCard> allPrints = [];
+      int currentPage = 1;
+      int totalCards = 0;
+      int totalPages = 0;
+
+      // Primeira requisição para obter informações de paginação
+      final firstResponse = await http.get(
+        Uri.parse(
+          '$_baseUrl/cards/search?q=!"$cleanName"&include_multilingual=true&unique=prints&page=1',
+        ),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (firstResponse.statusCode == 200) {
+        final jsonData = json.decode(firstResponse.body);
+        totalCards = jsonData['total_cards'] ?? 0;
+        final hasMore = jsonData['has_more'] ?? false;
+
+        // Calcular total de páginas (175 cartas por página)
+        totalPages = (totalCards / 175).ceil();
+
+        Logger.debug(
+          '📊 [ScryfallService] Total de cartas: $totalCards, Páginas: $totalPages',
+        );
+
+        // Processar primeira página
+        final List<dynamic> firstPageData = jsonData['data'] ?? [];
+        for (var cardData in firstPageData) {
+          try {
+            final card = MTGCard.fromJson(cardData);
+            allPrints.add(card);
+          } catch (e) {
+            Logger.debug(
+              '❌ [ScryfallService] Erro ao processar carta da primeira página: $e',
+            );
+          }
+        }
+
+        // Notificar progresso da primeira página
+        if (onProgress != null) {
+          onProgress(currentPage, totalPages, totalCards);
+        }
+
+        // Carregar páginas adicionais se necessário
+        if (hasMore && totalPages > 1) {
+          for (int page = 2; page <= totalPages; page++) {
+            try {
+              Logger.debug(
+                '📄 [ScryfallService] Carregando página $page de $totalPages',
+              );
+
+              final response = await http.get(
+                Uri.parse(
+                  '$_baseUrl/cards/search?q=!"$cleanName"&include_multilingual=true&unique=prints&page=$page',
+                ),
+                headers: {'Content-Type': 'application/json'},
+              );
+
+              if (response.statusCode == 200) {
+                final pageData = json.decode(response.body);
+                final List<dynamic> cardsData = pageData['data'] ?? [];
+
+                for (var cardData in cardsData) {
+                  try {
+                    final card = MTGCard.fromJson(cardData);
+                    allPrints.add(card);
+                  } catch (e) {
+                    Logger.debug(
+                      '❌ [ScryfallService] Erro ao processar carta da página $page: $e',
+                    );
+                  }
+                }
+
+                currentPage = page;
+
+                // Notificar progresso
+                if (onProgress != null) {
+                  onProgress(currentPage, totalPages, totalCards);
+                }
+
+                // Pequena pausa para não sobrecarregar a API
+                await Future.delayed(const Duration(milliseconds: 100));
+              } else {
+                Logger.debug(
+                  '❌ [ScryfallService] Erro ao carregar página $page: ${response.statusCode}',
+                );
+                break;
+              }
+            } catch (e) {
+              Logger.debug(
+                '❌ [ScryfallService] Erro ao carregar página $page: $e',
+              );
+              break;
+            }
+          }
+        }
+
+        Logger.debug(
+          '✅ [ScryfallService] Carregamento concluído: ${allPrints.length} prints encontradas',
+        );
+        return allPrints;
+      } else {
+        Logger.debug(
+          '❌ [ScryfallService] Erro na primeira requisição: ${firstResponse.statusCode}',
+        );
+        return [];
+      }
+    } catch (e) {
+      Logger.debug('💥 [ScryfallService] Erro ao buscar todas as prints: $e');
+      return [];
     }
   }
 }
