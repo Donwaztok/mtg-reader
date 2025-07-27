@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:google_ml_kit/google_ml_kit.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
+import '../utils/logger.dart';
 
 class OCRService {
-  final TextRecognizer _textRecognizer = GoogleMlKit.vision.textRecognizer();
+  final TextRecognizer _textRecognizer = TextRecognizer();
 
   /// Reconhece texto em uma imagem
   Future<List<String>> recognizeText(File imageFile) async {
@@ -27,7 +28,7 @@ class OCRService {
 
       return textBlocks;
     } catch (e) {
-      print('Erro no OCR: $e');
+      Logger.debug('Erro no OCR: $e');
       return [];
     }
   }
@@ -35,11 +36,11 @@ class OCRService {
   /// Reconhece texto em dados de imagem (Uint8List)
   Future<List<String>> recognizeTextFromBytes(Uint8List imageBytes) async {
     try {
-      print('Iniciando OCR com ${imageBytes.length} bytes');
+      Logger.debug('Iniciando OCR com ${imageBytes.length} bytes');
 
       // Pré-processa a imagem antes do OCR
       final processedImageBytes = await preprocessImage(imageBytes);
-      print('Imagem pré-processada: ${processedImageBytes.length} bytes');
+      Logger.debug('Imagem pré-processada: ${processedImageBytes.length} bytes');
 
       // Tenta primeiro com o arquivo temporário
       try {
@@ -50,9 +51,9 @@ class OCRService {
 
         // Usa o método de arquivo que é mais confiável
         final inputImage = InputImage.fromFile(tempFile);
-        print('Imagem carregada do arquivo temporário');
+        Logger.debug('Imagem carregada do arquivo temporário');
 
-        print('Processando imagem com ML Kit...');
+        Logger.debug('Processando imagem com ML Kit...');
         final RecognizedText recognizedText = await _textRecognizer
             .processImage(inputImage);
 
@@ -72,11 +73,11 @@ class OCRService {
         // Filtra e limpa os blocos de texto
         textBlocks = textBlocks.where((block) => block.isNotEmpty).toList();
 
-        print('Texto reconhecido: $textBlocks'); // Debug
+        Logger.debug('Texto reconhecido: $textBlocks'); // Debug
         return textBlocks;
       } catch (fileError) {
-        print('Erro com arquivo temporário: $fileError');
-        print('Tentando com imagem original...');
+        Logger.debug('Erro com arquivo temporário: $fileError');
+        Logger.debug('Tentando com imagem original...');
 
         // Fallback: tenta com a imagem original
         final tempDir = Directory.systemTemp;
@@ -101,12 +102,12 @@ class OCRService {
 
         textBlocks = textBlocks.where((block) => block.isNotEmpty).toList();
 
-        print('Texto reconhecido (original): $textBlocks'); // Debug
+        Logger.debug('Texto reconhecido (original): $textBlocks'); // Debug
         return textBlocks;
       }
     } catch (e) {
-      print('Erro no OCR com bytes: $e');
-      print('Stack trace: ${StackTrace.current}');
+      Logger.debug('Erro no OCR com bytes: $e');
+      Logger.debug('Stack trace: ${StackTrace.current}');
       return [];
     }
   }
@@ -115,7 +116,7 @@ class OCRService {
   Future<Map<String, String>> extractCardInfo(List<String> textBlocks) async {
     Map<String, String> cardInfo = {};
 
-    print('Extraindo informações de: $textBlocks'); // Debug
+    Logger.debug('Extraindo informações de: $textBlocks'); // Debug
 
     // Lista para armazenar candidatos a nome de carta
     List<String> nameCandidates = [];
@@ -131,21 +132,21 @@ class OCRService {
       // Tenta extrair custo de mana
       if (_isManaCost(cleanText)) {
         cardInfo['manaCost'] = cleanText;
-        print('Custo de mana encontrado: $cleanText'); // Debug
+        Logger.debug('Custo de mana encontrado: $cleanText'); // Debug
         continue;
       }
 
       // Tenta extrair linha de tipo
       if (_isTypeLine(cleanText)) {
         cardInfo['typeLine'] = cleanText;
-        print('Linha de tipo encontrada: $cleanText'); // Debug
+        Logger.debug('Linha de tipo encontrada: $cleanText'); // Debug
         continue;
       }
 
       // Tenta extrair poder/resistência
       if (_isPowerToughness(cleanText)) {
         cardInfo['powerToughness'] = cleanText;
-        print('Poder/Resistência encontrado: $cleanText'); // Debug
+        Logger.debug('Poder/Resistência encontrado: $cleanText'); // Debug
         continue;
       }
 
@@ -155,21 +156,21 @@ class OCRService {
         if (extractedInfo.containsKey('collectorNumber') &&
             !cardInfo.containsKey('collectorNumber')) {
           cardInfo['collectorNumber'] = extractedInfo['collectorNumber']!;
-          print(
+          Logger.debug(
             'Número do coletor extraído: ${extractedInfo['collectorNumber']} de "$cleanText"',
           );
         }
         if (extractedInfo.containsKey('setCode') &&
             !cardInfo.containsKey('setCode')) {
           cardInfo['setCode'] = extractedInfo['setCode']!;
-          print(
+          Logger.debug(
             'Código do set extraído: ${extractedInfo['setCode']} de "$cleanText"',
           );
         }
         if (extractedInfo.containsKey('language') &&
             !cardInfo.containsKey('language')) {
           cardInfo['language'] = extractedInfo['language']!;
-          print(
+          Logger.debug(
             'Linguagem extraída: ${extractedInfo['language']} de "$cleanText"',
           );
         }
@@ -181,7 +182,7 @@ class OCRService {
       if (extractedCollectorNumber != null &&
           !cardInfo.containsKey('collectorNumber')) {
         cardInfo['collectorNumber'] = extractedCollectorNumber;
-        print(
+        Logger.debug(
           'Número do coletor extraído: $extractedCollectorNumber de "$cleanText"',
         ); // Debug
         continue;
@@ -190,7 +191,7 @@ class OCRService {
       // Tenta extrair número do coletor
       if (_isCollectorNumber(cleanText)) {
         cardInfo['collectorNumber'] = cleanText;
-        print('Número do coletor encontrado: $cleanText'); // Debug
+        Logger.debug('Número do coletor encontrado: $cleanText'); // Debug
         continue;
       }
 
@@ -198,7 +199,7 @@ class OCRService {
       String? extractedSetCode = _extractSetCode(cleanText);
       if (extractedSetCode != null && !cardInfo.containsKey('setCode')) {
         cardInfo['setCode'] = extractedSetCode;
-        print(
+        Logger.debug(
           'Código do set extraído: $extractedSetCode de "$cleanText"',
         ); // Debug
         continue;
@@ -207,20 +208,20 @@ class OCRService {
       // Tenta extrair código do set
       if (_isSetCode(cleanText)) {
         cardInfo['setCode'] = cleanText;
-        print('Código do set encontrado: $cleanText'); // Debug
+        Logger.debug('Código do set encontrado: $cleanText'); // Debug
         continue;
       }
 
       // Se não é nenhum dos tipos específicos, pode ser um nome de carta
       if (_looksLikeCardName(cleanText)) {
         nameCandidates.add(cleanText);
-        print('Candidato a nome: $cleanText'); // Debug
+        Logger.debug('Candidato a nome: $cleanText'); // Debug
       }
     }
 
     // Melhora a extração do nome da carta com múltiplas estratégias
     if (nameCandidates.isNotEmpty) {
-      print('Candidatos originais: $nameCandidates'); // Debug
+      Logger.debug('Candidatos originais: $nameCandidates'); // Debug
 
       // Procura especificamente por "Ossificação" ou variações
       String? ossificacaoCandidate = nameCandidates.firstWhere(
@@ -230,55 +231,55 @@ class OCRService {
 
       if (ossificacaoCandidate.isNotEmpty) {
         cardInfo['name'] = 'Ossificação';
-        print(
+        Logger.debug(
           'Nome da carta detectado como Ossificação: $ossificacaoCandidate',
         ); // Debug
       } else {
         String bestCandidate = _selectBestNameCandidate(nameCandidates);
         cardInfo['name'] = bestCandidate;
-        print('Nome da carta selecionado: $bestCandidate'); // Debug
+        Logger.debug('Nome da carta selecionado: $bestCandidate'); // Debug
 
         // Tenta melhorar o nome com correções comuns do OCR
         String improvedName = _improveCardName(bestCandidate);
         if (improvedName != bestCandidate) {
           cardInfo['name'] = improvedName;
-          print('Nome da carta melhorado: $improvedName'); // Debug
+          Logger.debug('Nome da carta melhorado: $improvedName'); // Debug
         }
       }
     }
 
     // Log final resumido das informações extraídas
-    print('=== RESUMO DAS INFORMAÇÕES EXTRAÍDAS ===');
+    Logger.debug('=== RESUMO DAS INFORMAÇÕES EXTRAÍDAS ===');
     if (cardInfo.containsKey('name')) {
-      print('✅ Nome: ${cardInfo['name']}');
+      Logger.debug('✅ Nome: ${cardInfo['name']}');
     } else {
-      print('❌ Nome: Não detectado');
+      Logger.debug('❌ Nome: Não detectado');
     }
 
     if (cardInfo.containsKey('setCode')) {
-      print('✅ Set Code: ${cardInfo['setCode']}');
+      Logger.debug('✅ Set Code: ${cardInfo['setCode']}');
     } else {
-      print('❌ Set Code: Não detectado');
+      Logger.debug('❌ Set Code: Não detectado');
     }
 
     if (cardInfo.containsKey('collectorNumber')) {
-      print('✅ Collector Number: ${cardInfo['collectorNumber']}');
+      Logger.debug('✅ Collector Number: ${cardInfo['collectorNumber']}');
     } else {
-      print('❌ Collector Number: Não detectado');
+      Logger.debug('❌ Collector Number: Não detectado');
     }
 
     if (cardInfo.containsKey('language')) {
-      print('✅ Language: ${cardInfo['language']}');
+      Logger.debug('✅ Language: ${cardInfo['language']}');
     } else {
-      print('❌ Language: Não detectado');
+      Logger.debug('❌ Language: Não detectado');
     }
 
     if (cardInfo.containsKey('typeLine')) {
-      print('✅ Type Line: ${cardInfo['typeLine']}');
+      Logger.debug('✅ Type Line: ${cardInfo['typeLine']}');
     } else {
-      print('❌ Type Line: Não detectado');
+      Logger.debug('❌ Type Line: Não detectado');
     }
-    print('==========================================');
+    Logger.debug('==========================================');
 
     return cardInfo;
   }
@@ -303,7 +304,7 @@ class OCRService {
     if (candidates.isEmpty) return '';
     if (candidates.length == 1) return candidates.first;
 
-    print('Candidatos a nome: $candidates'); // Debug
+    Logger.debug('Candidatos a nome: $candidates'); // Debug
 
     // Filtra candidatos que são palavras muito comuns
     List<String> filteredCandidates = candidates.where((candidate) {
@@ -337,7 +338,7 @@ class OCRService {
       return !commonWords.contains(lowerCandidate);
     }).toList();
 
-    print('Candidatos filtrados: $filteredCandidates'); // Debug
+    Logger.debug('Candidatos filtrados: $filteredCandidates'); // Debug
 
     if (filteredCandidates.isEmpty) {
       // Se não há candidatos filtrados, usa o original
@@ -359,7 +360,7 @@ class OCRService {
     });
 
     String selected = filteredCandidates.first;
-    print('Nome selecionado: $selected'); // Debug
+    Logger.debug('Nome selecionado: $selected'); // Debug
     return selected;
   }
 
@@ -742,16 +743,16 @@ class OCRService {
   /// Processa uma imagem para melhorar o OCR
   Future<Uint8List> preprocessImage(Uint8List imageBytes) async {
     try {
-      print('Iniciando pré-processamento da imagem...');
+      Logger.debug('Iniciando pré-processamento da imagem...');
 
       // Decodifica a imagem
       img.Image? image = img.decodeImage(imageBytes);
       if (image == null) {
-        print('Erro: Não foi possível decodificar a imagem');
+        Logger.debug('Erro: Não foi possível decodificar a imagem');
         return imageBytes;
       }
 
-      print('Imagem original: ${image.width}x${image.height}');
+      Logger.debug('Imagem original: ${image.width}x${image.height}');
 
       // Redimensiona para um tamanho adequado para OCR (mantém proporção)
       final aspectRatio = image.height / image.width;
@@ -759,37 +760,37 @@ class OCRService {
       final targetHeight = (targetWidth * aspectRatio).round();
 
       image = img.copyResize(image, width: targetWidth, height: targetHeight);
-      print('Imagem redimensionada: ${image.width}x${image.height}');
+      Logger.debug('Imagem redimensionada: ${image.width}x${image.height}');
 
       // Converte para escala de cinza
       image = img.grayscale(image);
-      print('Convertida para escala de cinza');
+      Logger.debug('Convertida para escala de cinza');
 
       // Aplica contraste mais agressivo para melhorar a legibilidade
       image = img.contrast(image, contrast: 300);
-      print('Contraste aplicado');
+      Logger.debug('Contraste aplicado');
 
       // Aplica um leve blur para reduzir ruído
       image = img.gaussianBlur(image, radius: 1);
-      print('Blur aplicado');
+      Logger.debug('Blur aplicado');
 
       // Codifica de volta para bytes com qualidade otimizada para OCR
       final processedBytes = Uint8List.fromList(
         img.encodePng(image), // Usa PNG para preservar qualidade
       );
-      print('Imagem processada: ${processedBytes.length} bytes');
+      Logger.debug('Imagem processada: ${processedBytes.length} bytes');
 
       return processedBytes;
     } catch (e) {
-      print('Erro no pré-processamento da imagem: $e');
-      print('Stack trace: ${StackTrace.current}');
+      Logger.debug('Erro no pré-processamento da imagem: $e');
+      Logger.debug('Stack trace: ${StackTrace.current}');
       return imageBytes;
     }
   }
 
   /// Extrai informações completas de collector/set/language de um texto
   Map<String, String>? _extractCompleteInfo(String text) {
-    print('🔍 Analisando texto para extração completa: "$text"');
+    Logger.debug('🔍 Analisando texto para extração completa: "$text"');
     Map<String, String> result = {};
 
     // 1. Extrai collector number (três formatos: 999/999 Z, Z 9999, ou 999 999 Z)
@@ -809,22 +810,22 @@ class OCRService {
       String? collectorNumber = collectorMatch1.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        print('📊 Collector Number extraído (padrão 1): $collectorNumber');
+        Logger.debug('📊 Collector Number extraído (padrão 1): $collectorNumber');
       }
     } else if (collectorMatch2 != null) {
       String? collectorNumber = collectorMatch2.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        print('📊 Collector Number extraído (padrão 2): $collectorNumber');
+        Logger.debug('📊 Collector Number extraído (padrão 2): $collectorNumber');
       }
     } else if (collectorMatch3 != null) {
       String? collectorNumber = collectorMatch3.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        print('📊 Collector Number extraído (padrão 3): $collectorNumber');
+        Logger.debug('📊 Collector Number extraído (padrão 3): $collectorNumber');
       }
     } else {
-      print('❌ Collector Number não encontrado nos padrões esperados');
+      Logger.debug('❌ Collector Number não encontrado nos padrões esperados');
     }
 
     // 2. Extrai set code (primeiro código de 3 letras maiúsculas)
@@ -834,9 +835,9 @@ class OCRService {
       // Pega o primeiro código de 3 letras encontrado
       String setCode = setMatches.first.group(1)!;
       result['setCode'] = setCode;
-      print('🎴 Set Code extraído: $setCode');
+      Logger.debug('🎴 Set Code extraído: $setCode');
     } else {
-      print('❌ Set Code não encontrado');
+      Logger.debug('❌ Set Code não encontrado');
     }
 
     // 3. Extrai language code (códigos de idioma válidos)
@@ -862,22 +863,22 @@ class OCRService {
         String language = match.group(1)!;
         if (validLanguages.contains(language)) {
           result['language'] = language;
-          print('🌍 Language Code extraído: $language');
+          Logger.debug('🌍 Language Code extraído: $language');
           break;
         }
       }
 
       if (!result.containsKey('language')) {
-        print('❌ Language Code válido não encontrado');
+        Logger.debug('❌ Language Code válido não encontrado');
       }
     } else {
-      print('❌ Language Code não encontrado');
+      Logger.debug('❌ Language Code não encontrado');
     }
 
     if (result.isNotEmpty) {
-      print('✅ Extração completa bem-sucedida: $result');
+      Logger.debug('✅ Extração completa bem-sucedida: $result');
     } else {
-      print('❌ Nenhuma informação extraída');
+      Logger.debug('❌ Nenhuma informação extraída');
     }
 
     return result.isNotEmpty ? result : null;

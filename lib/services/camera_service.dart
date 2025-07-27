@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/logger.dart';
 
 class CameraService {
   CameraController? _controller;
@@ -15,14 +16,14 @@ class CameraService {
       // Solicita permissão de câmera
       final status = await Permission.camera.request();
       if (status != PermissionStatus.granted) {
-        print('Permissão de câmera negada');
+        Logger.info('Permissão de câmera negada');
         return false;
       }
 
       // Obtém as câmeras disponíveis
       _cameras = await availableCameras();
       if (_cameras == null || _cameras!.isEmpty) {
-        print('Nenhuma câmera disponível');
+        Logger.info('Nenhuma câmera disponível');
         return false;
       }
 
@@ -49,13 +50,13 @@ class CameraService {
           await _controller!.setExposureMode(ExposureMode.auto);
           await _controller!.setFocusMode(FocusMode.auto);
         } catch (e) {
-          print('Erro ao configurar câmera: $e');
+          Logger.info('Erro ao configurar câmera: $e');
         }
       }
       _isInitialized = true;
       return true;
     } catch (e) {
-      print('Erro ao inicializar câmera: $e');
+      Logger.info('Erro ao inicializar câmera: $e');
       return false;
     }
   }
@@ -63,24 +64,24 @@ class CameraService {
   /// Captura uma imagem com gerenciamento de buffer
   Future<Uint8List?> takePicture() async {
     if (!isReadyToCapture) {
-      print('Câmera não está pronta para capturar');
+      Logger.info('Câmera não está pronta para capturar');
       return null;
     }
 
     try {
-      print('Iniciando captura de imagem...');
+      Logger.info('Iniciando captura de imagem...');
 
       // Captura a imagem sem pausar o preview (mais estável)
       final XFile image = await _controller!.takePicture();
-      print('Imagem capturada com sucesso: ${image.path}');
+      Logger.info('Imagem capturada com sucesso: ${image.path}');
 
       final File imageFile = File(image.path);
       final imageBytes = await imageFile.readAsBytes();
-      print('Imagem carregada: ${imageBytes.length} bytes');
+      Logger.info('Imagem carregada: ${imageBytes.length} bytes');
 
       return imageBytes;
     } catch (e) {
-      print('Erro ao capturar imagem: $e');
+      Logger.info('Erro ao capturar imagem: $e');
       return null;
     }
   }
@@ -88,17 +89,17 @@ class CameraService {
   /// Captura uma imagem e salva em arquivo
   Future<File?> takePictureAndSave() async {
     if (!isReadyToCapture) {
-      print('Câmera não está pronta para capturar');
+      Logger.info('Câmera não está pronta para capturar');
       return null;
     }
 
     try {
-      print('Iniciando captura de imagem para arquivo...');
+      Logger.info('Iniciando captura de imagem para arquivo...');
       final XFile image = await _controller!.takePicture();
-      print('Imagem capturada e salva: ${image.path}');
+      Logger.info('Imagem capturada e salva: ${image.path}');
       return File(image.path);
     } catch (e) {
-      print('Erro ao capturar imagem: $e');
+      Logger.info('Erro ao capturar imagem: $e');
       return null;
     }
   }
@@ -148,7 +149,7 @@ class CameraService {
       await _controller!.initialize();
       return true;
     } catch (e) {
-      print('Erro ao alternar câmera: $e');
+      Logger.info('Erro ao alternar câmera: $e');
       return false;
     }
   }
@@ -164,7 +165,7 @@ class CameraService {
         await _controller!.setFlashMode(FlashMode.off);
       }
     } catch (e) {
-      print('Erro ao alternar flash: $e');
+      Logger.info('Erro ao alternar flash: $e');
     }
   }
 
@@ -178,9 +179,9 @@ class CameraService {
     if (_controller != null && _controller!.value.isInitialized) {
       try {
         await _controller!.pausePreview();
-        print('Câmera pausada para liberar recursos');
+        Logger.info('Câmera pausada para liberar recursos');
       } catch (e) {
-        print('Erro ao pausar câmera: $e');
+        Logger.info('Erro ao pausar câmera: $e');
       }
     }
   }
@@ -190,9 +191,9 @@ class CameraService {
     if (_controller != null && _controller!.value.isInitialized) {
       try {
         await _controller!.resumePreview();
-        print('Câmera resumida');
+        Logger.info('Câmera resumida');
       } catch (e) {
-        print('Erro ao resumir câmera: $e');
+        Logger.info('Erro ao resumir câmera: $e');
       }
     }
   }
@@ -201,28 +202,28 @@ class CameraService {
   Future<void> dispose() async {
     try {
       if (_controller != null) {
-        print('Liberando recursos da câmera...');
+        Logger.info('Liberando recursos da câmera...');
         await _controller!.dispose();
         _controller = null;
       }
       _isInitialized = false;
-      print('Recursos da câmera liberados com sucesso');
+      Logger.info('Recursos da câmera liberados com sucesso');
     } catch (e) {
-      print('Erro ao liberar recursos da câmera: $e');
+      Logger.info('Erro ao liberar recursos da câmera: $e');
     }
   }
 
   /// Reinicializa a câmera (útil quando ela trava)
   Future<bool> reinitialize() async {
     try {
-      print('Reinicializando câmera...');
+      Logger.info('Reinicializando câmera...');
       await dispose();
       await Future.delayed(
         Duration(milliseconds: 500),
       ); // Pausa para liberar recursos
       return await initialize();
     } catch (e) {
-      print('Erro ao reinicializar câmera: $e');
+      Logger.info('Erro ao reinicializar câmera: $e');
       return false;
     }
   }

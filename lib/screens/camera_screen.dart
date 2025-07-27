@@ -77,7 +77,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Widget _buildScanOverlay() {
     return Container(
-      decoration: BoxDecoration(color: Colors.black.withOpacity(0.3)),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3)),
       child: Center(
         child: Container(
           width: 280,
@@ -163,7 +163,7 @@ class _CameraScreenState extends State<CameraScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
           ),
         ),
         child: Column(
@@ -173,7 +173,7 @@ class _CameraScreenState extends State<CameraScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
@@ -210,7 +210,7 @@ class _CameraScreenState extends State<CameraScreen> {
                       shape: BoxShape.circle,
                       color: provider.isProcessing
                           ? Colors.grey
-                          : Colors.white.withOpacity(0.9),
+                          : Colors.white.withValues(alpha: 0.9),
                       border: Border.all(color: Colors.white, width: 4),
                     ),
                     child: Icon(
@@ -275,8 +275,8 @@ class _CameraScreenState extends State<CameraScreen> {
         height: 50,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.2),
-          border: Border.all(color: Colors.white.withOpacity(0.5)),
+          color: Colors.white.withValues(alpha: 0.2),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
         ),
         child: Icon(icon, color: Colors.white, size: 24),
       ),
@@ -293,9 +293,9 @@ class _CameraScreenState extends State<CameraScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.3)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

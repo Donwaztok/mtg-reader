@@ -108,59 +108,46 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     final card = provider.scannedCard;
 
     if (card != null) {
-      try {
-        // Usar a URL exata que você mencionou para buscar todas as prints
-        final response = await http.get(
-          Uri.parse(
-            'https://api.scryfall.com/cards/search?q=!"${card.name}"&include_multilingual=true&unique=prints',
-          ),
-          headers: {'Content-Type': 'application/json'},
-        );
+      // Usar a URL exata que você mencionou para buscar todas as prints
+      final response = await http.get(
+        Uri.parse(
+          'https://api.scryfall.com/cards/search?q=!"${card.name}"&include_multilingual=true&unique=prints',
+        ),
+        headers: {'Content-Type': 'application/json'},
+      );
 
-        if (response.statusCode == 200) {
-          final jsonData = json.decode(response.body);
-          final List<dynamic> cardsData = jsonData['data'] ?? [];
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final List<dynamic> cardsData = jsonData['data'] ?? [];
 
-          List<MTGCard> prints = [];
-          for (var cardData in cardsData) {
-            try {
-              final printCard = MTGCard.fromJson(cardData);
-              prints.add(printCard);
-            } catch (e) {
-              print('Erro ao processar print: $e');
-            }
-          }
-
-          // Organizar prints por idioma
-          _organizePrintsByLanguage(prints);
-
-          setState(() {
-            _allPrints = prints;
-            _currentLanguagePrints = _getCurrentLanguagePrints();
-            _currentPrintIndex = 0;
-          });
-
-          // Se não há idioma selecionado, selecionar o primeiro disponível
-          if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
-            final firstLanguageCode = _printsByLanguage.keys.first;
-            final englishName = languageCodeToName[firstLanguageCode];
-            if (englishName != null) {
-              final portugueseName = languageLabels[englishName];
-              if (portugueseName != null) {
-                setState(() {
-                  _selectedLanguage = portugueseName;
-                });
-              }
-            }
-          }
-
-          print('Carregadas ${_allPrints.length} prints da carta ${card.name}');
-          print('Organizadas por idioma: ${_printsByLanguage.keys.toList()}');
-        } else {
-          print('Erro ao carregar prints: ${response.statusCode}');
+        List<MTGCard> prints = [];
+        for (var cardData in cardsData) {
+          final printCard = MTGCard.fromJson(cardData);
+          prints.add(printCard);
         }
-      } catch (e) {
-        print('Erro ao carregar prints: $e');
+
+        // Organizar prints por idioma
+        _organizePrintsByLanguage(prints);
+
+        setState(() {
+          _allPrints = prints;
+          _currentLanguagePrints = _getCurrentLanguagePrints();
+          _currentPrintIndex = 0;
+        });
+
+        // Se não há idioma selecionado, selecionar o primeiro disponível
+        if (_selectedLanguage == null && _printsByLanguage.isNotEmpty) {
+          final firstLanguageCode = _printsByLanguage.keys.first;
+          final englishName = languageCodeToName[firstLanguageCode];
+          if (englishName != null) {
+            final portugueseName = languageLabels[englishName];
+            if (portugueseName != null) {
+              setState(() {
+                _selectedLanguage = portugueseName;
+              });
+            }
+          }
+        }
       }
     }
   }
@@ -227,59 +214,51 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   }
 
   Future<void> _loadCardInLanguage(String languageName) async {
-    try {
-      // Encontrar o código do idioma
-      String? languageCode;
+    // Encontrar o código do idioma
+    String? languageCode;
 
-      // Primeiro, converter o nome em português para inglês
-      String? englishName;
-      for (var entry in languageLabels.entries) {
-        if (entry.value == languageName) {
-          englishName = entry.key;
+    // Primeiro, converter o nome em português para inglês
+    String? englishName;
+    for (var entry in languageLabels.entries) {
+      if (entry.value == languageName) {
+        englishName = entry.key;
+        break;
+      }
+    }
+
+    // Depois, converter o nome em inglês para o código
+    if (englishName != null) {
+      for (var entry in languageCodeToName.entries) {
+        if (entry.value == englishName) {
+          languageCode = entry.key;
           break;
         }
       }
+    }
 
-      // Depois, converter o nome em inglês para o código
-      if (englishName != null) {
-        for (var entry in languageCodeToName.entries) {
-          if (entry.value == englishName) {
-            languageCode = entry.key;
-            break;
-          }
-        }
-      }
+    if (languageCode != null && _printsByLanguage.containsKey(languageCode)) {
+      // Usar cache - não precisa fazer nova requisição
+      final printsInLanguage = _printsByLanguage[languageCode]!;
+      if (printsInLanguage.isNotEmpty) {
+        setState(() {
+          _selectedLanguage = languageName;
+          _currentLanguagePrints = printsInLanguage;
+          _currentPrintIndex = 0;
+        });
 
-      if (languageCode != null && _printsByLanguage.containsKey(languageCode)) {
-        // Usar cache - não precisa fazer nova requisição
-        final printsInLanguage = _printsByLanguage[languageCode]!;
-        if (printsInLanguage.isNotEmpty) {
-          setState(() {
-            _selectedLanguage = languageName;
-            _currentLanguagePrints = printsInLanguage;
-            _currentPrintIndex = 0;
-          });
+        // Atualizar o provider com a primeira print do idioma
+        final provider = Provider.of<ScannerProvider>(context, listen: false);
+        provider.updateScannedCard(printsInLanguage[0]);
 
-          // Atualizar o provider com a primeira print do idioma
-          final provider = Provider.of<ScannerProvider>(context, listen: false);
-          provider.updateScannedCard(printsInLanguage[0]);
-
-          // Animar para a primeira página
-          if (_pageController.hasClients) {
-            _pageController.animateToPage(
-              0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          }
-
-          print(
-            'Mudou para idioma $languageName - ${printsInLanguage.length} prints disponíveis',
+        // Animar para a primeira página
+        if (_pageController.hasClients) {
+          _pageController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
           );
         }
       }
-    } catch (e) {
-      print('Erro ao carregar carta no idioma: $e');
     }
   }
 
@@ -396,7 +375,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: PopupMenuButton<String>(
@@ -701,7 +680,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -809,7 +788,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -842,8 +821,9 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
   Widget _buildCardFlavorText(MTGCard card) {
     final flavorText = _getCardFlavorText(card);
-    if (flavorText == null || flavorText.isEmpty)
+    if (flavorText == null || flavorText.isEmpty) {
       return const SizedBox.shrink();
+    }
 
     return Container(
       width: double.infinity,
@@ -854,7 +834,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -896,7 +876,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1026,7 +1006,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1074,7 +1054,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1136,7 +1116,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1188,7 +1168,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1244,7 +1224,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1316,7 +1296,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           child: GestureDetector(
             onTap: () {
               // Aqui você pode implementar a abertura do link
-              print('Opening: $url');
             },
             child: Text(
               url,
@@ -1416,7 +1395,11 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       // Se é uma cor só, cria um gradiente sutil
       Color color = _getColorFromMTGColor(card.colors.first);
       return LinearGradient(
-        colors: [color, color.withOpacity(0.7), color.withOpacity(0.9)],
+        colors: [
+          color,
+          color.withValues(alpha: 0.7),
+          color.withValues(alpha: 0.9),
+        ],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );

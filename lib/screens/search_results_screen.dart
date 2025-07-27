@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/mtg_card.dart';
 import '../services/scanner_provider.dart';
 import '../services/scryfall_service.dart';
+import '../utils/logger.dart';
 import 'card_details_screen.dart';
 
 class SearchResultsScreen extends StatefulWidget {
@@ -34,12 +35,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   @override
   void initState() {
     super.initState();
-    print('🎬 [SearchResults] initState chamado');
-    print('🎬 [SearchResults] Query: "${widget.searchQuery}"');
+    Logger.debug('🎬 [SearchResults] initState chamado');
+    Logger.debug('🎬 [SearchResults] Query: "${widget.searchQuery}"');
     _currentQuery = widget.searchQuery;
-    print('🎬 [SearchResults] Adicionando listener de scroll');
+    Logger.debug('🎬 [SearchResults] Adicionando listener de scroll');
     _scrollController.addListener(_onScroll);
-    print('🎬 [SearchResults] Iniciando carregamento inicial');
+    Logger.debug('🎬 [SearchResults] Iniciando carregamento inicial');
     _loadSearchResults();
   }
 
@@ -56,7 +57,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         _scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoading && _hasMorePages && _cards.isNotEmpty) {
-        print(
+        Logger.debug(
           'Scroll detectado: pixels=${_scrollController.position.pixels}, maxExtent=${_scrollController.position.maxScrollExtent}',
         );
         _loadMoreResults();
@@ -65,13 +66,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _loadSearchResults() async {
-    print('🚀 [SearchResults] Iniciando _loadSearchResults');
-    print('🚀 [SearchResults] Query: "$_currentQuery"');
-    print('🚀 [SearchResults] Página atual: $_currentPage');
-    print('🚀 [SearchResults] isLoading: $_isLoading');
+    Logger.debug('🚀 [SearchResults] Iniciando _loadSearchResults');
+    Logger.debug('🚀 [SearchResults] Query: "$_currentQuery"');
+    Logger.debug('🚀 [SearchResults] Página atual: $_currentPage');
+    Logger.debug('🚀 [SearchResults] isLoading: $_isLoading');
 
     if (_isLoading) {
-      print('⏸️ [SearchResults] Já está carregando, pulando...');
+      Logger.debug('⏸️ [SearchResults] Já está carregando, pulando...');
       return;
     }
 
@@ -80,7 +81,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       _errorMessage = null;
     });
 
-    print('🔄 [SearchResults] Chamando ScryfallService.searchCards...');
+    Logger.debug('🔄 [SearchResults] Chamando ScryfallService.searchCards...');
 
     try {
       final cards = await _scryfallService.searchCards(
@@ -91,7 +92,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         dir: 'asc', // Ordem ascendente
       );
 
-      print(
+      Logger.debug(
         '📦 [SearchResults] ScryfallService retornou ${cards.length} cartas',
       );
 
@@ -103,21 +104,21 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         _hasMorePages = cards.length >= 175;
       });
 
-      print('✅ [SearchResults] Estado atualizado:');
-      print('   - Cartas: ${_cards.length}');
-      print('   - isLoading: $_isLoading');
-      print('   - hasMorePages: $_hasMorePages');
+      Logger.debug('✅ [SearchResults] Estado atualizado:');
+      Logger.debug('   - Cartas: ${_cards.length}');
+      Logger.debug('   - isLoading: $_isLoading');
+      Logger.debug('   - hasMorePages: $_hasMorePages');
 
       // Se não há mais páginas desde o início, remove o listener
       if (!_hasMorePages) {
         _scrollController.removeListener(_onScroll);
-        print(
+        Logger.debug(
           '🛑 [SearchResults] Nenhuma página adicional disponível. Removendo listener de scroll.',
         );
       }
     } catch (e) {
-      print('❌ [SearchResults] Erro ao buscar cartas: $e');
-      print('❌ [SearchResults] Stack trace: ${StackTrace.current}');
+      Logger.debug('❌ [SearchResults] Erro ao buscar cartas: $e');
+      Logger.debug('❌ [SearchResults] Stack trace: ${StackTrace.current}');
 
       setState(() {
         _errorMessage = 'Erro ao buscar cartas: $e';
@@ -127,14 +128,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _loadMoreResults() async {
-    print('📄 [SearchResults] Iniciando _loadMoreResults');
-    print(
+    Logger.debug('📄 [SearchResults] Iniciando _loadMoreResults');
+    Logger.debug(
       '📄 [SearchResults] Estado atual: isLoading=$_isLoading, hasMorePages=$_hasMorePages, cartas=${_cards.length}',
     );
 
     // Verifica se já está carregando ou se não há mais páginas
     if (_isLoading || !_hasMorePages) {
-      print(
+      Logger.debug(
         '⏸️ [SearchResults] Pulando carregamento: isLoading=$_isLoading, hasMorePages=$_hasMorePages',
       );
       return;
@@ -146,7 +147,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     try {
       final nextPage = _currentPage + 1;
-      print('📄 [SearchResults] Carregando página $nextPage...');
+      Logger.debug('📄 [SearchResults] Carregando página $nextPage...');
 
       final moreCards = await _scryfallService.searchCards(
         _currentQuery,
@@ -156,7 +157,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         dir: 'asc',
       );
 
-      print(
+      Logger.debug(
         '📦 [SearchResults] Página $nextPage retornou ${moreCards.length} cartas',
       );
 
@@ -167,7 +168,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           _hasMorePages = moreCards.length >= 175;
           _isLoading = false;
         });
-        print(
+        Logger.debug(
           '✅ [SearchResults] Carregadas mais ${moreCards.length} cartas. Total: ${_cards.length}. HasMorePages: $_hasMorePages',
         );
       } else {
@@ -175,15 +176,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           _hasMorePages = false;
           _isLoading = false;
         });
-        print(
+        Logger.debug(
           '🛑 [SearchResults] Nenhuma carta adicional encontrada. Finalizando paginação.',
         );
         // Remove o listener de scroll quando não há mais páginas
         _scrollController.removeListener(_onScroll);
       }
     } catch (e) {
-      print('❌ [SearchResults] Erro ao carregar mais resultados: $e');
-      print('❌ [SearchResults] Stack trace: ${StackTrace.current}');
+      Logger.debug('❌ [SearchResults] Erro ao carregar mais resultados: $e');
+      Logger.debug('❌ [SearchResults] Stack trace: ${StackTrace.current}');
 
       setState(() {
         _errorMessage = 'Erro ao carregar mais resultados: $e';
@@ -276,10 +277,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.1),
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
                   border: Border(
                     bottom: BorderSide(
-                      color: Colors.deepPurple.withOpacity(0.3),
+                      color: Colors.deepPurple.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -561,7 +562,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),

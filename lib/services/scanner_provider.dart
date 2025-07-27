@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../models/mtg_card.dart';
+import '../utils/logger.dart';
 import 'camera_service.dart';
 import 'ocr_service.dart';
 import 'scryfall_service.dart';
@@ -40,19 +41,19 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Inicializando câmera...'); // Debug
+      Logger.debug('Inicializando câmera...'); // Debug
       _isCameraInitialized = await _cameraService.initialize();
 
       // Inicializa o serviço de busca
-      print('Inicializando serviço de busca...'); // Debug
+      Logger.debug('Inicializando serviço de busca...'); // Debug
       await _scryfallService.initialize();
 
       _errorMessage = null;
-      print('Câmera inicializada: $_isCameraInitialized'); // Debug
+      Logger.debug('Câmera inicializada: $_isCameraInitialized'); // Debug
     } catch (e) {
       _errorMessage = 'Erro ao inicializar câmera: $e';
       _isCameraInitialized = false;
-      print('Erro na inicialização da câmera: $e'); // Debug
+      Logger.debug('Erro na inicialização da câmera: $e'); // Debug
     }
 
     _isProcessing = false;
@@ -85,31 +86,31 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Iniciando escaneamento...'); // Debug
+      Logger.debug('Iniciando escaneamento...'); // Debug
 
       // Captura a imagem
       final imageBytes = await _cameraService.takePicture();
       if (imageBytes == null) {
         throw Exception('Falha ao capturar imagem');
       }
-      print('Imagem capturada, tamanho: ${imageBytes.length} bytes'); // Debug
+      Logger.debug('Imagem capturada, tamanho: ${imageBytes.length} bytes'); // Debug
 
       // Primeira tentativa: Reconhecimento de imagem direto
-      print('Tentando reconhecimento de imagem...'); // Debug
+      Logger.debug('Tentando reconhecimento de imagem...'); // Debug
 
-      print('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
+      Logger.debug('Reconhecimento de imagem falhou, tentando OCR...'); // Debug
 
       // Sistema de retry para extrair todas as informações (uma única captura)
       _extractedInfo = await _extractCardInfoWithRetry(imageBytes, 2);
 
       // Log detalhado das informações extraídas
-      print('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
-      print('Nome: ${_extractedInfo['name']}');
-      print('Set Code: ${_extractedInfo['setCode']}');
-      print('Collector Number: ${_extractedInfo['collectorNumber']}');
-      print('Language: ${_extractedInfo['language']}');
-      print('Type Line: ${_extractedInfo['typeLine']}');
-      print('=====================================');
+      Logger.debug('=== INFORMAÇÕES EXTRAÍDAS (FINAL) ===');
+      Logger.debug('Nome: ${_extractedInfo['name']}');
+      Logger.debug('Set Code: ${_extractedInfo['setCode']}');
+      Logger.debug('Collector Number: ${_extractedInfo['collectorNumber']}');
+      Logger.debug('Language: ${_extractedInfo['language']}');
+      Logger.debug('Type Line: ${_extractedInfo['typeLine']}');
+      Logger.debug('=====================================');
 
       // Estratégia de busca otimizada usando dados bulk
       String? setCode = _extractedInfo['setCode'];
@@ -126,9 +127,9 @@ class ScannerProvider extends ChangeNotifier {
       );
 
       if (_scannedCard != null) {
-        print('Carta encontrada: ${_scannedCard!.name}'); // Debug
+        Logger.debug('Carta encontrada: ${_scannedCard!.name}'); // Debug
       } else {
-        print('Carta não encontrada na base de dados'); // Debug
+        Logger.debug('Carta não encontrada na base de dados'); // Debug
         List<String> searchAttempts = [];
         if (cardName != null) searchAttempts.add('nome: $cardName');
         if (setCode != null) searchAttempts.add('set: $setCode');
@@ -141,7 +142,7 @@ class ScannerProvider extends ChangeNotifier {
       }
     } catch (e) {
       _errorMessage = 'Erro ao escanear carta: $e';
-      print('Erro no escaneamento: $e'); // Debug
+      Logger.debug('Erro no escaneamento: $e'); // Debug
     }
 
     _isScanning = false;
@@ -157,19 +158,19 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Buscando carta manualmente: $cardName'); // Debug
+      Logger.debug('Buscando carta manualmente: $cardName'); // Debug
       _scannedCard = await _scryfallService.searchCardByName(cardName);
 
       if (_scannedCard == null) {
         _errorMessage =
             'Carta não encontrada: $cardName. Verifique o nome e tente novamente.';
-        print('Carta não encontrada manualmente: $cardName'); // Debug
+        Logger.debug('Carta não encontrada manualmente: $cardName'); // Debug
       } else {
-        print('Carta encontrada manualmente: ${_scannedCard!.name}'); // Debug
+        Logger.debug('Carta encontrada manualmente: ${_scannedCard!.name}'); // Debug
       }
     } catch (e) {
       _errorMessage = 'Erro ao buscar carta: $e';
-      print('Erro na busca manual: $e'); // Debug
+      Logger.debug('Erro na busca manual: $e'); // Debug
     }
 
     _isProcessing = false;
@@ -184,7 +185,7 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
+      Logger.debug('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
       _scannedCard = await _scryfallService.searchCardByNameAndSet(
         cardName,
         setCode,
@@ -193,17 +194,17 @@ class ScannerProvider extends ChangeNotifier {
       if (_scannedCard == null) {
         _errorMessage =
             'Carta não encontrada: $cardName ($setCode). Verifique o nome e código do set.';
-        print(
+        Logger.debug(
           'Carta não encontrada por nome e set: $cardName ($setCode)',
         ); // Debug
       } else {
-        print(
+        Logger.debug(
           'Carta encontrada por nome e set: ${_scannedCard!.name}',
         ); // Debug
       }
     } catch (e) {
       _errorMessage = 'Erro ao buscar carta: $e';
-      print('Erro na busca por nome e set: $e'); // Debug
+      Logger.debug('Erro na busca por nome e set: $e'); // Debug
     }
 
     _isProcessing = false;
@@ -221,7 +222,7 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print(
+      Logger.debug(
         'Buscando carta por collector number: $setCode/$collectorNumber',
       ); // Debug
       _scannedCard = await _scryfallService.searchCardByCollectorNumber(
@@ -232,17 +233,17 @@ class ScannerProvider extends ChangeNotifier {
       if (_scannedCard == null) {
         _errorMessage =
             'Carta não encontrada: $setCode/$collectorNumber. Verifique o código do set e número do coletor.';
-        print(
+        Logger.debug(
           'Carta não encontrada por collector number: $setCode/$collectorNumber',
         ); // Debug
       } else {
-        print(
+        Logger.debug(
           'Carta encontrada por collector number: ${_scannedCard!.name}',
         ); // Debug
       }
     } catch (e) {
       _errorMessage = 'Erro ao buscar carta: $e';
-      print('Erro na busca por collector number: $e'); // Debug
+      Logger.debug('Erro na busca por collector number: $e'); // Debug
     }
 
     _isProcessing = false;
@@ -255,7 +256,7 @@ class ScannerProvider extends ChangeNotifier {
     _errorMessage = null;
     _recognizedText = [];
     _extractedInfo = {};
-    print('Resultados limpos'); // Debug
+    Logger.debug('Resultados limpos'); // Debug
     notifyListeners();
   }
 
@@ -263,14 +264,14 @@ class ScannerProvider extends ChangeNotifier {
   void updateScannedCard(MTGCard newCard) {
     _scannedCard = newCard;
     _errorMessage = null;
-    print('Carta atualizada: ${newCard.name}'); // Debug
+    Logger.debug('Carta atualizada: ${newCard.name}'); // Debug
     notifyListeners();
   }
 
   /// Alterna entre câmeras
   Future<void> switchCamera() async {
     if (_isCameraInitialized) {
-      print('Alternando câmera...'); // Debug
+      Logger.debug('Alternando câmera...'); // Debug
       await _cameraService.switchCamera();
       notifyListeners();
     }
@@ -279,7 +280,7 @@ class ScannerProvider extends ChangeNotifier {
   /// Alterna o flash
   Future<void> toggleFlash() async {
     if (_isCameraInitialized) {
-      print('Alternando flash...'); // Debug
+      Logger.debug('Alternando flash...'); // Debug
       await _cameraService.toggleFlash();
       notifyListeners();
     }
@@ -291,20 +292,20 @@ class ScannerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print('Reinicializando câmera...'); // Debug
+      Logger.debug('Reinicializando câmera...'); // Debug
       _isCameraInitialized = await _cameraService.reinitialize();
 
       if (_isCameraInitialized) {
         _errorMessage = null;
-        print('Câmera reinicializada com sucesso'); // Debug
+        Logger.debug('Câmera reinicializada com sucesso'); // Debug
       } else {
         _errorMessage = 'Falha ao reinicializar câmera';
-        print('Falha ao reinicializar câmera'); // Debug
+        Logger.debug('Falha ao reinicializar câmera'); // Debug
       }
     } catch (e) {
       _errorMessage = 'Erro ao reinicializar câmera: $e';
       _isCameraInitialized = false;
-      print('Erro na reinicialização da câmera: $e'); // Debug
+      Logger.debug('Erro na reinicialização da câmera: $e'); // Debug
     }
 
     _isProcessing = false;
@@ -325,12 +326,12 @@ class ScannerProvider extends ChangeNotifier {
     Map<String, String> bestResult = {};
     int bestScore = 0;
 
-    print(
+    Logger.debug(
       '🔄 Iniciando sistema de retry otimizado (máximo $maxRetries tentativas)...',
     );
 
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      print('📸 Tentativa $attempt/$maxRetries...');
+      Logger.debug('📸 Tentativa $attempt/$maxRetries...');
 
       try {
         // Reconhece texto da imagem
@@ -339,11 +340,11 @@ class ScannerProvider extends ChangeNotifier {
         );
 
         if (recognizedText.isEmpty) {
-          print('❌ Tentativa $attempt: Nenhum texto reconhecido');
+          Logger.debug('❌ Tentativa $attempt: Nenhum texto reconhecido');
           continue;
         }
 
-        print('📝 Tentativa $attempt - Texto reconhecido: $recognizedText');
+        Logger.debug('📝 Tentativa $attempt - Texto reconhecido: $recognizedText');
 
         // Extrai informações da carta
         Map<String, String> extractedInfo = await _ocrService.extractCardInfo(
@@ -353,21 +354,21 @@ class ScannerProvider extends ChangeNotifier {
         // Calcula score da tentativa atual
         int currentScore = _calculateInfoScore(extractedInfo);
 
-        print('📊 Tentativa $attempt - Score: $currentScore');
-        print('📊 Tentativa $attempt - Informações: $extractedInfo');
+        Logger.debug('📊 Tentativa $attempt - Score: $currentScore');
+        Logger.debug('📊 Tentativa $attempt - Informações: $extractedInfo');
 
         // Se esta tentativa tem mais informações, atualiza o melhor resultado
         if (currentScore > bestScore) {
           bestScore = currentScore;
           bestResult = Map.from(extractedInfo);
-          print(
+          Logger.debug(
             '✅ Tentativa $attempt - Novo melhor resultado! Score: $bestScore',
           );
         }
 
         // Se conseguimos informações suficientes, podemos parar
         if (currentScore >= 2) {
-          print(
+          Logger.debug(
             '🎯 Tentativa $attempt - Informações suficientes encontradas! Parando retry.',
           );
           break;
@@ -378,7 +379,7 @@ class ScannerProvider extends ChangeNotifier {
           await Future.delayed(Duration(milliseconds: 500));
         }
       } catch (e) {
-        print('❌ Tentativa $attempt - Erro: $e');
+        Logger.debug('❌ Tentativa $attempt - Erro: $e');
         // Pausa extra em caso de erro
         if (attempt < maxRetries) {
           await Future.delayed(Duration(milliseconds: 1000));
@@ -386,8 +387,8 @@ class ScannerProvider extends ChangeNotifier {
       }
     }
 
-    print('🏁 Sistema de retry finalizado. Melhor score: $bestScore');
-    print('🏁 Melhor resultado: $bestResult');
+    Logger.debug('🏁 Sistema de retry finalizado. Melhor score: $bestScore');
+    Logger.debug('🏁 Melhor resultado: $bestResult');
 
     return bestResult;
   }
@@ -411,7 +412,7 @@ class ScannerProvider extends ChangeNotifier {
   /// Libera recursos
   @override
   void dispose() {
-    print('Dispose do ScannerProvider'); // Debug
+    Logger.debug('Dispose do ScannerProvider'); // Debug
     _cameraService.dispose();
     _ocrService.dispose();
     super.dispose();

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/mtg_card.dart';
+import '../utils/logger.dart';
 
 class SimpleSearchService {
   static const String _baseUrl = 'https://api.scryfall.com';
@@ -10,21 +11,21 @@ class SimpleSearchService {
   /// Busca uma carta por nome com estratégias inteligentes
   Future<MTGCard?> searchCardByName(String cardName) async {
     try {
-      print('Buscando carta: "$cardName"');
+      Logger.debug('Buscando carta: "$cardName"');
 
       final cleanName = _cleanCardName(cardName);
 
       // Estratégia 1: Busca fuzzy direta (mais eficiente)
       final fuzzyCard = await _searchFuzzy(cleanName);
       if (fuzzyCard != null) {
-        print('Carta encontrada (fuzzy): ${fuzzyCard.name}');
+        Logger.debug('Carta encontrada (fuzzy): ${fuzzyCard.name}');
         return fuzzyCard;
       }
 
       // Estratégia 2: Busca exata
       final exactCard = await _searchExact(cleanName);
       if (exactCard != null) {
-        print('Carta encontrada (exata): ${exactCard.name}');
+        Logger.debug('Carta encontrada (exata): ${exactCard.name}');
         return exactCard;
       }
 
@@ -34,7 +35,7 @@ class SimpleSearchService {
       for (final variation in variations) {
         final card = await _searchFuzzy(variation);
         if (card != null) {
-          print('Carta encontrada (variação): ${card.name}');
+          Logger.debug('Carta encontrada (variação): ${card.name}');
           return card;
         }
       }
@@ -47,16 +48,16 @@ class SimpleSearchService {
           final suggestion = suggestions[i];
           final card = await _searchExact(suggestion);
           if (card != null) {
-            print('Carta encontrada (autocomplete): ${card.name}');
+            Logger.debug('Carta encontrada (autocomplete): ${card.name}');
             return card;
           }
         }
       }
 
-      print('Carta não encontrada: $cleanName');
+      Logger.debug('Carta não encontrada: $cleanName');
       return null;
     } catch (e) {
-      print('Erro ao buscar carta: $e');
+      Logger.debug('Erro ao buscar carta: $e');
       return null;
     }
   }
@@ -68,7 +69,7 @@ class SimpleSearchService {
     String? language,
   }) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta por collector: $setCode/$collectorNumber (lang: $language)',
       );
 
@@ -88,13 +89,13 @@ class SimpleSearchService {
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final card = MTGCard.fromJson(jsonData);
-        print('Carta encontrada por collector: ${card.name}');
+        Logger.debug('Carta encontrada por collector: ${card.name}');
         return card;
       } else {
-        print('Erro na busca por collector: ${response.statusCode}');
+        Logger.debug('Erro na busca por collector: ${response.statusCode}');
       }
     } catch (e) {
-      print('Erro ao buscar carta por collector: $e');
+      Logger.debug('Erro ao buscar carta por collector: $e');
     }
     return null;
   }
@@ -106,7 +107,7 @@ class SimpleSearchService {
     String? language,
   }) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta por nome e set: $cardName ($setCode, lang: $language)',
       );
 
@@ -125,13 +126,13 @@ class SimpleSearchService {
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final card = MTGCard.fromJson(jsonData);
-        print('Carta encontrada por nome e set: ${card.name}');
+        Logger.debug('Carta encontrada por nome e set: ${card.name}');
         return card;
       } else {
-        print('Erro na busca por nome e set: ${response.statusCode}');
+        Logger.debug('Erro na busca por nome e set: ${response.statusCode}');
       }
     } catch (e) {
-      print('Erro ao buscar carta por nome e set: $e');
+      Logger.debug('Erro ao buscar carta por nome e set: $e');
     }
     return null;
   }
@@ -205,7 +206,7 @@ class SimpleSearchService {
     String? language,
   }) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta: $cardName (set: $setCode, collector: $collectorNumber, lang: $language)',
       );
 
@@ -219,7 +220,7 @@ class SimpleSearchService {
             language: language.toLowerCase(),
           );
           if (card != null) {
-            print(
+            Logger.debug(
               'Carta encontrada por collector number ($language): ${card.name}',
             );
             return card;
@@ -233,14 +234,14 @@ class SimpleSearchService {
           language: 'pt',
         );
         if (card != null) {
-          print('Carta encontrada por collector number (PT): ${card.name}');
+          Logger.debug('Carta encontrada por collector number (PT): ${card.name}');
           return card;
         }
 
         // Se não encontrar, tenta sem especificar idioma
         card = await searchCardByCollectorNumber(setCode, collectorNumber);
         if (card != null) {
-          print('Carta encontrada por collector number: ${card.name}');
+          Logger.debug('Carta encontrada por collector number: ${card.name}');
           return card;
         }
       }
@@ -255,7 +256,7 @@ class SimpleSearchService {
             language: language.toLowerCase(),
           );
           if (card != null) {
-            print('Carta encontrada por nome e set ($language): ${card.name}');
+            Logger.debug('Carta encontrada por nome e set ($language): ${card.name}');
             return card;
           }
         }
@@ -267,14 +268,14 @@ class SimpleSearchService {
           language: 'pt',
         );
         if (card != null) {
-          print('Carta encontrada por nome e set (PT): ${card.name}');
+          Logger.debug('Carta encontrada por nome e set (PT): ${card.name}');
           return card;
         }
 
         // Se não encontrar, tenta sem especificar idioma
         card = await searchCardByNameAndSet(cardName, setCode);
         if (card != null) {
-          print('Carta encontrada por nome e set: ${card.name}');
+          Logger.debug('Carta encontrada por nome e set: ${card.name}');
           return card;
         }
       }
@@ -282,14 +283,14 @@ class SimpleSearchService {
       // Estratégia 3: Nome apenas
       final card = await searchCardByName(cardName);
       if (card != null) {
-        print('Carta encontrada por nome: ${card.name}');
+        Logger.debug('Carta encontrada por nome: ${card.name}');
         return card;
       }
 
-      print('Carta não encontrada');
+      Logger.debug('Carta não encontrada');
       return null;
     } catch (e) {
-      print('Erro ao buscar carta: $e');
+      Logger.debug('Erro ao buscar carta: $e');
       return null;
     }
   }

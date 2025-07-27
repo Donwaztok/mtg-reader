@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/mtg_card.dart';
+import '../utils/logger.dart';
 
 class BulkDataService {
   static const String _baseUrl = 'https://api.scryfall.com';
@@ -21,29 +22,29 @@ class BulkDataService {
     if (_isInitialized) return true;
 
     try {
-      print('Inicializando serviço de dados bulk...');
+      Logger.error('Inicializando serviço de dados bulk...');
 
       // Verifica se já temos dados locais
       if (await _hasLocalData()) {
-        print('Carregando dados locais...');
+        Logger.error('Carregando dados locais...');
         await _loadLocalData();
         _isInitialized = true;
-        print('Dados locais carregados: ${_cardNamesToIds.length} cartas');
+        Logger.error('Dados locais carregados: ${_cardNamesToIds.length} cartas');
         return true;
       }
 
       // Baixa dados se não existirem
-      print('Baixando dados bulk...');
+      Logger.error('Baixando dados bulk...');
       final success = await _downloadBulkData();
       if (success) {
         _isInitialized = true;
-        print(
+        Logger.error(
           'Dados bulk baixados e carregados: ${_cardNamesToIds.length} cartas',
         );
         return true;
       }
     } catch (e) {
-      print('Erro ao inicializar dados bulk: $e');
+      Logger.error('Erro ao inicializar dados bulk: $e');
     }
 
     return false;
@@ -87,7 +88,7 @@ class BulkDataService {
         }
       }
     } catch (e) {
-      print('Erro ao carregar dados locais: $e');
+      Logger.error('Erro ao carregar dados locais: $e');
     }
   }
 
@@ -98,7 +99,7 @@ class BulkDataService {
       final response = await http.get(Uri.parse('$_baseUrl/bulk-data'));
 
       if (response.statusCode != 200) {
-        print(
+        Logger.error(
           'Erro ao obter informações de dados bulk: ${response.statusCode}',
         );
         return false;
@@ -111,24 +112,24 @@ class BulkDataService {
       );
 
       if (defaultCards == null) {
-        print('Dados bulk padrão não encontrados');
+        Logger.error('Dados bulk padrão não encontrados');
         return false;
       }
 
       final downloadUrl = defaultCards['download_uri'];
-      print('Baixando dados de: $downloadUrl');
+      Logger.error('Baixando dados de: $downloadUrl');
 
       // Baixa o arquivo usando streaming real
       final success = await _downloadAndProcessStreaming(downloadUrl);
 
       if (success) {
-        print('Dados bulk processados com sucesso');
+        Logger.error('Dados bulk processados com sucesso');
         return true;
       }
 
       return false;
     } catch (e) {
-      print('Erro ao baixar dados bulk: $e');
+      Logger.error('Erro ao baixar dados bulk: $e');
       return false;
     }
   }
@@ -143,7 +144,7 @@ class BulkDataService {
       final streamedResponse = await client.send(request);
 
       if (streamedResponse.statusCode != 200) {
-        print('Erro ao baixar dados bulk: ${streamedResponse.statusCode}');
+        Logger.error('Erro ao baixar dados bulk: ${streamedResponse.statusCode}');
         return false;
       }
 
@@ -219,7 +220,7 @@ class BulkDataService {
 
                   processed++;
                   if (processed % 1000 == 0) {
-                    print('Processadas $processed cartas...');
+                    Logger.error('Processadas $processed cartas...');
                   }
                 } catch (e) {
                   // Ignora cartas com erro de parsing
@@ -242,10 +243,10 @@ class BulkDataService {
       // Salva dados essenciais
       await _saveEssentialData();
 
-      print('Total de cartas processadas: $processed');
+      Logger.error('Total de cartas processadas: $processed');
       return true;
     } catch (e) {
-      print('Erro ao processar dados bulk: $e');
+      Logger.error('Erro ao processar dados bulk: $e');
       return false;
     }
   }
@@ -263,9 +264,9 @@ class BulkDataService {
       };
 
       await file.writeAsString(json.encode(data));
-      print('Dados essenciais salvos');
+      Logger.error('Dados essenciais salvos');
     } catch (e) {
-      print('Erro ao salvar dados essenciais: $e');
+      Logger.error('Erro ao salvar dados essenciais: $e');
     }
   }
 
@@ -276,28 +277,28 @@ class BulkDataService {
     }
 
     if (_cardNamesToIds.isEmpty) {
-      print('Nenhum dado disponível para busca');
+      Logger.error('Nenhum dado disponível para busca');
       return null;
     }
 
     final cleanName = _cleanCardName(cardName);
-    print('Buscando carta: "$cleanName"');
+    Logger.error('Buscando carta: "$cleanName"');
 
     // Busca exata
     final cardId = _cardNamesToIds[cleanName.toLowerCase()];
     if (cardId != null) {
-      print('Carta encontrada (exata): $cleanName');
+      Logger.error('Carta encontrada (exata): $cleanName');
       return await _fetchCardById(cardId);
     }
 
     // Busca fuzzy
     final fuzzyMatch = _findBestFuzzyMatch(cleanName);
     if (fuzzyMatch != null) {
-      print('Carta encontrada (fuzzy): $fuzzyMatch');
+      Logger.error('Carta encontrada (fuzzy): $fuzzyMatch');
       return await _fetchCardById(_cardNamesToIds[fuzzyMatch]!);
     }
 
-    print('Carta não encontrada: $cleanName');
+    Logger.error('Carta não encontrada: $cleanName');
     return null;
   }
 
@@ -318,7 +319,7 @@ class BulkDataService {
     final cardId = _collectorToIds[key];
 
     if (cardId != null) {
-      print('Carta encontrada por collector: $key');
+      Logger.error('Carta encontrada por collector: $key');
       return await _fetchCardById(cardId);
     }
 
@@ -344,14 +345,14 @@ class BulkDataService {
     // Busca exata no set
     final cardId = _cardNamesToIds[cleanName.toLowerCase()];
     if (cardId != null && setCardIds.contains(cardId)) {
-      print('Carta encontrada por nome e set: $cleanName');
+      Logger.error('Carta encontrada por nome e set: $cleanName');
       return await _fetchCardById(cardId);
     }
 
     // Busca fuzzy no set
     final fuzzyMatch = _findBestFuzzyMatchInSet(cleanName, setCardIds);
     if (fuzzyMatch != null) {
-      print('Carta encontrada por nome e set (fuzzy): $fuzzyMatch');
+      Logger.error('Carta encontrada por nome e set (fuzzy): $fuzzyMatch');
       return await _fetchCardById(_cardNamesToIds[fuzzyMatch]!);
     }
 
@@ -375,7 +376,7 @@ class BulkDataService {
     }
 
     if (bestMatch != null) {
-      print(
+      Logger.error(
         'Melhor match fuzzy: $bestMatch (score: ${bestScore.toStringAsFixed(2)})',
       );
     }
@@ -418,7 +419,7 @@ class BulkDataService {
         return MTGCard.fromJson(jsonData);
       }
     } catch (e) {
-      print('Erro ao buscar carta por ID: $e');
+      Logger.error('Erro ao buscar carta por ID: $e');
     }
     return null;
   }

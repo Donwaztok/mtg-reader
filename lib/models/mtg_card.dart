@@ -146,9 +146,6 @@ class MTGCard {
 
   factory MTGCard.fromJson(Map<String, dynamic> json) {
     // Debug: verificar se o campo foreign_names existe na resposta
-    print('JSON keys: ${json.keys.toList()}');
-    print('Foreign names field: ${json['foreign_names']}');
-    print('Foreign names field (alternative): ${json['foreignNames']}');
 
     List<MTGCardForeignName> foreignNamesList = [];
 
@@ -157,13 +154,10 @@ class MTGCard {
         json['foreign_names'] ?? json['foreignNames'] ?? json['foreign-names'];
 
     if (foreignNamesData != null && foreignNamesData is List) {
-      print('Found foreign names data: $foreignNamesData');
       foreignNamesList = (foreignNamesData)
           .map((e) => MTGCardForeignName.fromJson(e))
           .toList();
     }
-
-    print('Parsed foreign names count: ${foreignNamesList.length}');
 
     return MTGCard(
       id: json['id'] ?? '',

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/mtg_card.dart';
+import '../utils/logger.dart';
 import 'simple_search_service.dart';
 
 class ScryfallService {
@@ -17,26 +18,26 @@ class ScryfallService {
   /// Busca uma carta usando busca fuzzy (aproximada)
   Future<MTGCard?> _searchCardFuzzy(String cardName) async {
     try {
-      print('Tentando busca fuzzy para: $cardName'); // Debug
+      Logger.debug('Tentando busca fuzzy para: $cardName'); // Debug
 
       final response = await http.get(
         Uri.parse('$_baseUrl/cards/named?fuzzy=$cardName'),
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Status da resposta fuzzy: ${response.statusCode}'); // Debug
+      Logger.debug('Status da resposta fuzzy: ${response.statusCode}'); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('Carta encontrada com fuzzy: ${jsonData['name']}'); // Debug
+        Logger.debug('Carta encontrada com fuzzy: ${jsonData['name']}'); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
-        print(
+        Logger.debug(
           'Erro na busca fuzzy: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro na busca fuzzy: $e');
+      Logger.debug('Erro na busca fuzzy: $e');
     }
     return null;
   }
@@ -47,7 +48,7 @@ class ScryfallService {
     String setCode,
   ) async {
     try {
-      print('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
+      Logger.debug('Buscando carta por nome e set: $cardName ($setCode)'); // Debug
 
       String cleanName = _cleanCardName(cardName);
       String cleanSetCode = setCode.toUpperCase().trim();
@@ -57,19 +58,19 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Status da resposta nome+set: ${response.statusCode}'); // Debug
+      Logger.debug('Status da resposta nome+set: ${response.statusCode}'); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('Carta encontrada por nome+set: ${jsonData['name']}'); // Debug
+        Logger.debug('Carta encontrada por nome+set: ${jsonData['name']}'); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
-        print(
+        Logger.debug(
           'Erro na busca por nome+set: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro ao buscar carta por nome e set: $e');
+      Logger.debug('Erro ao buscar carta por nome e set: $e');
     }
     return null;
   }
@@ -80,7 +81,7 @@ class ScryfallService {
     String collectorNumber,
   ) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta por collector number: $setCode/$collectorNumber',
       ); // Debug
 
@@ -92,19 +93,19 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Status da resposta collector: ${response.statusCode}'); // Debug
+      Logger.debug('Status da resposta collector: ${response.statusCode}'); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('Carta encontrada por collector: ${jsonData['name']}'); // Debug
+        Logger.debug('Carta encontrada por collector: ${jsonData['name']}'); // Debug
         return MTGCard.fromJson(jsonData);
       } else {
-        print(
+        Logger.debug(
           'Erro na busca por collector: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro ao buscar carta por collector number: $e');
+      Logger.debug('Erro ao buscar carta por collector number: $e');
     }
     return null;
   }
@@ -117,7 +118,7 @@ class ScryfallService {
     String? language,
   }) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta em dados bulk: $cardName (set: $setCode, collector: $collectorNumber, lang: $language)',
       ); // Debug
 
@@ -130,7 +131,7 @@ class ScryfallService {
           language: language,
         );
         if (card != null) {
-          print('Carta encontrada por collector number: ${card.name}'); // Debug
+          Logger.debug('Carta encontrada por collector number: ${card.name}'); // Debug
           return card;
         }
       }
@@ -144,7 +145,7 @@ class ScryfallService {
           language: language,
         );
         if (card != null) {
-          print('Carta encontrada por nome e set: ${card.name}'); // Debug
+          Logger.debug('Carta encontrada por nome e set: ${card.name}'); // Debug
           return card;
         }
       }
@@ -152,14 +153,14 @@ class ScryfallService {
       // Terceira tentativa: busca por nome apenas
       final card = await _searchService.searchCardByName(cardName);
       if (card != null) {
-        print('Carta encontrada por nome em bulk: ${card.name}'); // Debug
+        Logger.debug('Carta encontrada por nome em bulk: ${card.name}'); // Debug
         return card;
       }
 
-      print('Carta não encontrada em dados bulk'); // Debug
+      Logger.debug('Carta não encontrada em dados bulk'); // Debug
       return null;
     } catch (e) {
-      print('Erro ao buscar carta em dados bulk: $e');
+      Logger.debug('Erro ao buscar carta em dados bulk: $e');
       return null;
     }
   }
@@ -167,7 +168,7 @@ class ScryfallService {
   /// Busca uma carta pelo nome exato
   Future<MTGCard?> searchCardByName(String cardName) async {
     try {
-      print('Buscando carta: $cardName'); // Debug
+      Logger.debug('Buscando carta: $cardName'); // Debug
 
       // Limpa o nome da carta
       String cleanName = _cleanCardName(cardName);
@@ -177,11 +178,11 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Status da resposta: ${response.statusCode}'); // Debug
+      Logger.debug('Status da resposta: ${response.statusCode}'); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('Carta encontrada: ${jsonData['name']}'); // Debug
+        Logger.debug('Carta encontrada: ${jsonData['name']}'); // Debug
 
         // Buscar traduções se a carta foi encontrada
         MTGCard card = MTGCard.fromJson(jsonData);
@@ -192,18 +193,18 @@ class ScryfallService {
 
         return card;
       } else if (response.statusCode == 404) {
-        print(
+        Logger.debug(
           'Carta não encontrada com busca exata, tentando fuzzy...',
         ); // Debug
         // Carta não encontrada, tenta busca fuzzy
         return await _searchCardFuzzy(cleanName);
       } else {
-        print(
+        Logger.debug(
           'Erro na API: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro ao buscar carta: $e');
+      Logger.debug('Erro ao buscar carta: $e');
     }
     return null;
   }
@@ -243,7 +244,7 @@ class ScryfallService {
           uniqueTranslations[translation.language] = translation;
         }
 
-        print('Found ${uniqueTranslations.length} unique translations');
+        Logger.debug('Found ${uniqueTranslations.length} unique translations');
 
         // Criar nova carta com as traduções
         return MTGCard(
@@ -305,7 +306,7 @@ class ScryfallService {
         );
       }
     } catch (e) {
-      print('Erro ao buscar traduções: $e');
+      Logger.debug('Erro ao buscar traduções: $e');
     }
 
     return card;
@@ -349,7 +350,7 @@ class ScryfallService {
   /// Busca todos os idiomas disponíveis para uma carta específica
   Future<List<String>> getAvailableLanguagesForCard(String cardName) async {
     try {
-      print('Buscando idiomas disponíveis para: $cardName'); // Debug
+      Logger.debug('Buscando idiomas disponíveis para: $cardName'); // Debug
 
       String cleanName = _cleanCardName(cardName);
 
@@ -359,7 +360,7 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('Status da resposta idiomas: ${response.statusCode}'); // Debug
+      Logger.debug('Status da resposta idiomas: ${response.statusCode}'); // Debug
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -378,15 +379,15 @@ class ScryfallService {
             .map((code) => _getLanguageName(code))
             .toList();
 
-        print('Idiomas encontrados: $languageNames'); // Debug
+        Logger.debug('Idiomas encontrados: $languageNames'); // Debug
         return languageNames;
       } else {
-        print(
+        Logger.debug(
           'Erro ao buscar idiomas: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro ao buscar idiomas disponíveis: $e');
+      Logger.debug('Erro ao buscar idiomas disponíveis: $e');
     }
     return [];
   }
@@ -397,7 +398,7 @@ class ScryfallService {
     String languageCode,
   ) async {
     try {
-      print(
+      Logger.debug(
         'Buscando carta em idioma específico: $cardName ($languageCode)',
       ); // Debug
 
@@ -416,21 +417,21 @@ class ScryfallService {
         // Encontra a carta no idioma específico
         for (var cardData in cards) {
           if (cardData['lang'] == languageCode) {
-            print(
+            Logger.debug(
               'Carta encontrada no idioma $languageCode: ${cardData['name']}',
             ); // Debug
             return MTGCard.fromJson(cardData);
           }
         }
 
-        print('Carta não encontrada no idioma $languageCode'); // Debug
+        Logger.debug('Carta não encontrada no idioma $languageCode'); // Debug
       } else {
-        print(
+        Logger.debug(
           'Erro ao buscar carta em idioma: ${response.statusCode} - ${response.body}',
         ); // Debug
       }
     } catch (e) {
-      print('Erro ao buscar carta em idioma específico: $e');
+      Logger.debug('Erro ao buscar carta em idioma específico: $e');
     }
     return null;
   }
@@ -447,8 +448,8 @@ class ScryfallService {
     int? page,
   }) async {
     try {
-      print('🔍 [ScryfallService] Iniciando busca com query: "$query"');
-      print(
+      Logger.debug('🔍 [ScryfallService] Iniciando busca com query: "$query"');
+      Logger.debug(
         '🔍 [ScryfallService] Parâmetros: unique=$unique, order=$order, dir=$dir, page=$page',
       );
 
@@ -468,14 +469,14 @@ class ScryfallService {
       }
       if (page != null) params['page'] = page.toString();
 
-      print('🔧 [ScryfallService] Parâmetros construídos: $params');
+      Logger.debug('🔧 [ScryfallService] Parâmetros construídos: $params');
 
       final uri = Uri.parse(
         '$_baseUrl/cards/search',
       ).replace(queryParameters: params);
 
-      print('🌐 [ScryfallService] URL da busca: $uri');
-      print(
+      Logger.debug('🌐 [ScryfallService] URL da busca: $uri');
+      Logger.debug(
         '🌐 [ScryfallService] URL decodificada: ${Uri.decodeFull(uri.toString())}',
       );
 
@@ -484,23 +485,23 @@ class ScryfallService {
         headers: {'Content-Type': 'application/json'},
       );
 
-      print('📡 [ScryfallService] Status da resposta: ${response.statusCode}');
-      print(
+      Logger.debug('📡 [ScryfallService] Status da resposta: ${response.statusCode}');
+      Logger.debug(
         '📡 [ScryfallService] Tamanho da resposta: ${response.body.length} bytes',
       );
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('📋 [ScryfallService] Chaves do JSON: ${jsonData.keys.toList()}');
+        Logger.debug('📋 [ScryfallService] Chaves do JSON: ${jsonData.keys.toList()}');
 
         final List<dynamic> cardsData = jsonData['data'] ?? [];
-        print(
+        Logger.debug(
           '🎴 [ScryfallService] Encontradas ${cardsData.length} cartas no JSON',
         );
 
         if (cardsData.isEmpty) {
-          print('⚠️ [ScryfallService] Nenhuma carta encontrada no array data');
-          print(
+          Logger.debug('⚠️ [ScryfallService] Nenhuma carta encontrada no array data');
+          Logger.debug(
             '📄 [ScryfallService] Conteúdo da resposta: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}...',
           );
         }
@@ -509,40 +510,40 @@ class ScryfallService {
         for (int i = 0; i < cardsData.length; i++) {
           try {
             final cardData = cardsData[i];
-            print(
+            Logger.debug(
               '🔄 [ScryfallService] Processando carta $i: ${cardData['name'] ?? 'sem nome'}',
             );
             final card = MTGCard.fromJson(cardData);
             cards.add(card);
-            print(
+            Logger.debug(
               '✅ [ScryfallService] Carta $i processada com sucesso: ${card.name}',
             );
           } catch (e) {
-            print('❌ [ScryfallService] Erro ao processar carta $i: $e');
+            Logger.debug('❌ [ScryfallService] Erro ao processar carta $i: $e');
             // Continua processando outras cartas
           }
         }
 
-        print(
+        Logger.debug(
           '🎯 [ScryfallService] Total de cartas processadas com sucesso: ${cards.length}',
         );
         return cards;
       } else if (response.statusCode == 404) {
-        print(
+        Logger.debug(
           '❌ [ScryfallService] Nenhuma carta encontrada para a busca: $query',
         );
-        print('📄 [ScryfallService] Resposta 404: ${response.body}');
+        Logger.debug('📄 [ScryfallService] Resposta 404: ${response.body}');
         return [];
       } else {
-        print('❌ [ScryfallService] Erro na API: ${response.statusCode}');
-        print('📄 [ScryfallService] Corpo da resposta: ${response.body}');
+        Logger.debug('❌ [ScryfallService] Erro na API: ${response.statusCode}');
+        Logger.debug('📄 [ScryfallService] Corpo da resposta: ${response.body}');
         throw Exception(
           'Erro na busca: ${response.statusCode} - ${response.body}',
         );
       }
     } catch (e) {
-      print('💥 [ScryfallService] Erro ao buscar cartas: $e');
-      print('💥 [ScryfallService] Stack trace: ${StackTrace.current}');
+      Logger.debug('💥 [ScryfallService] Erro ao buscar cartas: $e');
+      Logger.debug('💥 [ScryfallService] Stack trace: ${StackTrace.current}');
       throw Exception('Erro ao buscar cartas: $e');
     }
   }
