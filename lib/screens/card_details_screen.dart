@@ -92,6 +92,12 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   final Map<String, List<MTGCard>> _printsByLanguage = {};
   List<MTGCard> _currentLanguagePrints = [];
 
+  // Variáveis para controle de carregamento
+  bool _isLoadingPrints = false;
+  int _loadingProgress = 0;
+  int _totalPages = 0;
+  int _totalCards = 0;
+
   // Instância do serviço Scryfall
   final ScryfallService _scryfallService = ScryfallService();
 
@@ -113,12 +119,23 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     final card = provider.scannedCard;
 
     if (card != null) {
+      setState(() {
+        _isLoadingPrints = true;
+        _loadingProgress = 0;
+        _totalPages = 0;
+        _totalCards = 0;
+      });
+
       try {
         // Usar o novo método que carrega todas as prints com paginação
         final prints = await _scryfallService.getAllPrintsForCard(
           card.name,
           onProgress: (currentPage, totalPages, totalCards) {
-            // Progresso silencioso - não atualiza a UI
+            setState(() {
+              _loadingProgress = currentPage;
+              _totalPages = totalPages;
+              _totalCards = totalCards;
+            });
           },
         );
 
@@ -129,6 +146,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           _allPrints = prints;
           _currentLanguagePrints = _getCurrentLanguagePrints();
           _currentPrintIndex = 0;
+          _isLoadingPrints = false;
         });
 
         // Se não há idioma selecionado, selecionar o primeiro disponível
@@ -145,6 +163,9 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           }
         }
       } catch (e) {
+        setState(() {
+          _isLoadingPrints = false;
+        });
         // Em caso de erro, manter o comportamento anterior como fallback
         _loadAllPrintsFallback();
       }
@@ -359,54 +380,25 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                     bottom: 8,
                   ),
                   margin: const EdgeInsets.only(bottom: 16),
-                  child: Column(
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          Expanded(
-                            child: Text(
-                              _getCardName(card),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                fontSize: 18,
-                              ),
-                              textAlign: TextAlign.center,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          _buildCompactLanguageSelector(),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                      // Indicador de prints carregadas
-                      if (_allPrints.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
+                      Expanded(
+                        child: Text(
+                          _getCardName(card),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 18,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${_allPrints.length} prints carregadas',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
+                      ),
+                      _buildCompactLanguageSelector(),
                     ],
                   ),
                 ),
@@ -614,6 +606,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         children: [
           _buildCardImagePageView(),
           _buildPrintsNavigation(),
+          if (_isLoadingPrints) _buildPrintsProgressCard(),
           _buildCardInfo(card),
           _buildCardText(card),
           _buildCardFlavorText(card),
@@ -1394,6 +1387,132 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPrintsProgressCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho
+          Row(
+            children: [
+              const Icon(Icons.download, color: Colors.green, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Carregando Prints',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              if (_totalCards > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$_totalCards encontradas',
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Informações de progresso
+          if (_totalPages > 0) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Página $_loadingProgress de $_totalPages',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                ),
+                Text(
+                  '${((_loadingProgress / _totalPages) * 100).toInt()}%',
+                  style: TextStyle(
+                    color: Colors.green[300],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: _loadingProgress / _totalPages,
+              backgroundColor: Colors.grey[700],
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Buscando prints...',
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 8),
+
+          // Informações adicionais
+          Row(
+            children: [
+              Icon(Icons.language, size: 16, color: Colors.grey[500]),
+              const SizedBox(width: 4),
+              Text(
+                '${_printsByLanguage.length} idiomas disponíveis',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              const Spacer(),
+              Icon(Icons.image, size: 16, color: Colors.grey[500]),
+              const SizedBox(width: 4),
+              Text(
+                '${_allPrints.length} prints carregadas',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
