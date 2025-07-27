@@ -113,7 +113,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   // Novas variáveis para múltiplas prints
   List<MTGCard> _allPrints = [];
   int _currentPrintIndex = 0;
-  final PageController _pageController = PageController();
+  late PageController _pageController;
+  bool _shouldJumpToIndex = false;
 
   // Cache organizado por idioma
   final Map<String, List<MTGCard>> _printsByLanguage = {};
@@ -131,6 +132,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    // Inicializa o PageController
+    _pageController = PageController();
     // Inicia o carregamento das prints em paralelo
     _loadAllPrints();
   }
@@ -176,7 +179,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         setState(() {
           _allPrints = prints;
           _currentLanguagePrints = _getCurrentLanguagePrints();
-          _currentPrintIndex = 0;
           _isLoadingPrints = false;
         });
 
@@ -225,7 +227,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           setState(() {
             _allPrints = prints;
             _currentLanguagePrints = _getCurrentLanguagePrints();
-            _currentPrintIndex = 0;
           });
 
           // Seleção automática baseada nos parâmetros fornecidos
@@ -304,17 +305,65 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       }
     }
 
-    // Seleção de edição
+    // Seleção de edição e número do collector
     if (widget.preferredEdition != null && _currentLanguagePrints.isNotEmpty) {
-      // Procurar pela edição preferida
+      Logger.debug('Procurando edição preferida: ${widget.preferredEdition}');
+      Logger.debug(
+        'Total de prints na linguagem: ${_currentLanguagePrints.length}',
+      );
+
+      // Obter o número do collector da carta original
+      final provider = Provider.of<ScannerProvider>(context, listen: false);
+      final originalCard = provider.scannedCard;
+      final originalCollectorNumber = originalCard?.collectorNumber;
+
+      Logger.debug('Número do collector original: $originalCollectorNumber');
+
+      // Procurar pela combinação específica: edição + número do collector
       for (int i = 0; i < _currentLanguagePrints.length; i++) {
         final card = _currentLanguagePrints[i];
-        if (card.setName?.toLowerCase() ==
+        Logger.debug(
+          'Verificando carta $i: set=${card.set}, setName=${card.setName}, collector=${card.collectorNumber}',
+        );
+
+        // Verificar se é a edição correta E o número do collector correto
+        bool isCorrectEdition =
+            card.setName?.toLowerCase() ==
                 widget.preferredEdition!.toLowerCase() ||
-            card.set?.toLowerCase() == widget.preferredEdition!.toLowerCase()) {
+            card.set?.toLowerCase() == widget.preferredEdition!.toLowerCase();
+
+        bool isCorrectCollectorNumber =
+            originalCollectorNumber != null &&
+            card.collectorNumber == originalCollectorNumber;
+
+        if (isCorrectEdition && isCorrectCollectorNumber) {
           _selectedEdition = widget.preferredEdition;
           _currentPrintIndex = i;
+          Logger.debug(
+            'Carta específica encontrada! Índice: $_currentPrintIndex (set: ${card.set}, collector: ${card.collectorNumber})',
+          );
           break;
+        }
+      }
+
+      // Se não encontrou a combinação específica, tentar apenas pela edição
+      if (_selectedEdition == null) {
+        Logger.debug(
+          'Carta específica não encontrada, tentando apenas pela edição...',
+        );
+        for (int i = 0; i < _currentLanguagePrints.length; i++) {
+          final card = _currentLanguagePrints[i];
+          if (card.setName?.toLowerCase() ==
+                  widget.preferredEdition!.toLowerCase() ||
+              card.set?.toLowerCase() ==
+                  widget.preferredEdition!.toLowerCase()) {
+            _selectedEdition = widget.preferredEdition;
+            _currentPrintIndex = i;
+            Logger.debug(
+              'Edição encontrada (fallback)! Índice: $_currentPrintIndex',
+            );
+            break;
+          }
         }
       }
     }
@@ -322,6 +371,14 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     // Se não há edição selecionada, usar a primeira
     if (_selectedEdition == null && _currentLanguagePrints.isNotEmpty) {
       _currentPrintIndex = 0;
+    }
+
+    // Marcar que deve pular para o índice selecionado
+    Logger.debug('Índice final selecionado: $_currentPrintIndex');
+    if (_currentPrintIndex > 0) {
+      _shouldJumpToIndex = true;
+      Logger.debug('Marcado para pular para índice: $_currentPrintIndex');
+      setState(() {}); // Forçar rebuild do widget
     }
   }
 
@@ -710,6 +767,21 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       return _buildCardImage(
         Provider.of<ScannerProvider>(context, listen: false).scannedCard!,
       );
+    }
+
+    // Pular para o índice correto se necessário
+    if (_shouldJumpToIndex && _currentPrintIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          Logger.debug('Pulando para índice: $_currentPrintIndex');
+          _pageController.animateToPage(
+            _currentPrintIndex,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          _shouldJumpToIndex = false;
+        }
+      });
     }
 
     return SizedBox(
