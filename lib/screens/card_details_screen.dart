@@ -1741,18 +1741,25 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
 
   // Gera o gradiente baseado nas cores da carta
   LinearGradient _getCardColorGradient(MTGCard card) {
-    if (card.colors.isEmpty) {
-      // Se não há cores (artefato, terreno), usa gradiente neutro
+    // Para terrenos, usar colorIdentity em vez de colors
+    List<String> cardColors = card.colors;
+    if (cardColors.isEmpty && card.colorIdentity.isNotEmpty) {
+      // Se não há colors mas há colorIdentity (terrenos), usar colorIdentity
+      cardColors = card.colorIdentity;
+    }
+
+    if (cardColors.isEmpty) {
+      // Se não há cores (artefato), usa gradiente neutro
       return const LinearGradient(
-        colors: [Colors.grey, Colors.deepPurple],
+        colors: [Colors.grey, Color.fromARGB(255, 74, 107, 116)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
     }
 
-    if (card.colors.length == 1) {
+    if (cardColors.length == 1) {
       // Se é uma cor só, cria um gradiente sutil
-      Color color = _getColorFromMTGColor(card.colors.first);
+      Color color = _getColorFromMTGColor(cardColors.first);
       return LinearGradient(
         colors: [
           color,
@@ -1765,7 +1772,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     }
 
     // Se são múltiplas cores, cria um gradiente
-    List<Color> gradientColors = card.colors
+    List<Color> gradientColors = cardColors
         .map((color) => _getColorFromMTGColor(color))
         .toList();
 
