@@ -9,6 +9,8 @@ import '../services/card_cache_service.dart';
 import '../services/scanner_provider.dart';
 import '../services/scryfall_service.dart';
 import '../utils/logger.dart';
+import '../widgets/magic_icons.dart';
+import '../widgets/magic_icons_demo.dart';
 
 const Map<String, String> languageLabels = {
   'English': 'Inglês',
@@ -973,6 +975,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Nome da carta
           Text(
             _getCardName(card),
             style: const TextStyle(
@@ -983,24 +986,37 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Custo de mana
+          // Custo de mana com ícones
           if (card.manaCost != null) ...[
-            Text(
-              'Custo: ${card.manaCost}',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            Row(
+              children: [
+                const Text(
+                  'Custo: ',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                MagicIcons.renderManaCost(card.manaCost),
+              ],
             ),
             const SizedBox(height: 8),
           ],
 
-          // Linha de tipo
+          // Linha de tipo com ícone
           if (_getCardTypeLine(card) != null) ...[
-            Text(
-              _getCardTypeLine(card)!,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
+            Row(
+              children: [
+                MagicIcons.renderCardTypeIcon(_getCardTypeLine(card)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _getCardTypeLine(card)!,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
           ],
@@ -1018,22 +1034,31 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             const SizedBox(height: 8),
           ],
 
-          // Raridade
+          // Raridade com ícone
           if (card.rarity != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _getRarityColor(card.rarity!),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                card.rarity!.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            Row(
+              children: [
+                MagicIcons.renderRarityIcon(card.rarity),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getRarityColor(card.rarity!),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    card.rarity!.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
             const SizedBox(height: 8),
           ],
@@ -1090,14 +1115,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            cardText,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.white,
-            ),
-          ),
+          // Usar MagicIcons para renderizar texto com símbolos de mana
+          MagicIcons.renderTextWithMana(cardText),
         ],
       ),
     );
@@ -1136,15 +1155,8 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            flavorText,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: Colors.grey,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
+          // Usar MagicIcons para renderizar flavor text com símbolos de mana
+          MagicIcons.renderTextWithMana(flavorText),
         ],
       ),
     );
@@ -1280,54 +1292,80 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Limpar Cache'),
-                    content: const Text(
-                      'Tem certeza que deseja limpar todo o cache? Isso removerá todas as cartas cacheadas.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Limpar'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (confirmed == true) {
-                  await CardCacheService().clearCache();
-                  if (mounted) {
-                    final messenger = ScaffoldMessenger.of(context);
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Cache limpo com sucesso!'),
-                        backgroundColor: Colors.green,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Limpar Cache'),
+                        content: const Text(
+                          'Tem certeza que deseja limpar todo o cache? Isso removerá todas as cartas cacheadas.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Limpar'),
+                          ),
+                        ],
                       ),
                     );
-                  }
-                }
-              },
-              icon: const Icon(Icons.clear_all),
-              label: const Text('Limpar Cache'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.orange,
-                side: const BorderSide(color: Colors.orange),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+
+                    if (confirmed == true) {
+                      await CardCacheService().clearCache();
+                      if (mounted) {
+                        final messenger = ScaffoldMessenger.of(context);
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Cache limpo com sucesso!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Limpar Cache'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange,
+                    side: const BorderSide(color: Colors.orange),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MagicIconsDemo(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Ver Ícones'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.purple,
+                    side: const BorderSide(color: Colors.purple),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
