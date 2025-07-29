@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
+import 'services/card_cache_service.dart';
 import 'services/scanner_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar serviços
+  await CardCacheService().initialize();
+
   runApp(const MTGScannerApp());
 }
 

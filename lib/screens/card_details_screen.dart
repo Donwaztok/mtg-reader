@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../models/mtg_card.dart';
+import '../services/card_cache_service.dart';
 import '../services/scanner_provider.dart';
 import '../services/scryfall_service.dart';
 import '../utils/logger.dart';
@@ -160,6 +161,55 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
         // Usar o nome original da carta se disponível, senão usar o nome da carta atual
         String cardNameToSearch = provider.originalCardName ?? card.name;
         Logger.debug('Buscando prints usando nome: $cardNameToSearch');
+
+        // Verificar cache primeiro
+        final cachedCards = await CardCacheService().getCachedCards(
+          cardNameToSearch,
+        );
+        if (cachedCards != null) {
+          Logger.debug('⚡ Usando cache para: $cardNameToSearch');
+
+          // Organizar prints por idioma
+          _organizePrintsByLanguage(cachedCards);
+
+          setState(() {
+            _allPrints = cachedCards;
+            _currentLanguagePrints = _getCurrentLanguagePrints();
+            _isLoadingPrints = false;
+          });
+
+          // Seleção automática baseada nos parâmetros fornecidos
+          _selectPreferredLanguageAndEdition();
+
+          // Mostrar mensagem de cache
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '📦 Carregado do cache: ${cachedCards.length} prints',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+
+            // Mostrar mensagem de verificação em background
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      '🔄 Verificando atualizações em background...',
+                    ),
+                    backgroundColor: Colors.blue,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            });
+          }
+          return;
+        }
 
         // Usar o novo método que carrega todas as prints com paginação
         final prints = await _scryfallService.getAllPrintsForCard(
@@ -755,6 +805,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           _buildCardPrices(card),
           _buildCardLinks(card),
           _buildCardMetadata(card),
+          _buildCacheInfo(),
           _buildActionButtons(context, provider),
         ],
       ),
@@ -1188,35 +1239,89 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(16),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () {
-                provider.clearResults();
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.camera_alt),
-              label: const Text('Escanear Outra'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    provider.clearResults();
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Escanear Outra'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.home),
+                  label: const Text('Início'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.deepPurple,
+                    side: const BorderSide(color: Colors.deepPurple),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.home),
-              label: const Text('Início'),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Limpar Cache'),
+                    content: const Text(
+                      'Tem certeza que deseja limpar todo o cache? Isso removerá todas as cartas cacheadas.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Limpar'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirmed == true) {
+                  await CardCacheService().clearCache();
+                  if (mounted) {
+                    final messenger = ScaffoldMessenger.of(context);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Cache limpo com sucesso!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.clear_all),
+              label: const Text('Limpar Cache'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.deepPurple,
-                side: const BorderSide(color: Colors.deepPurple),
+                foregroundColor: Colors.orange,
+                side: const BorderSide(color: Colors.orange),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1507,6 +1612,86 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
           _buildInfoRow('Reserved', card.reserved == true ? 'Sim' : 'Não'),
         ],
       ),
+    );
+  }
+
+  Widget _buildCacheInfo() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: CardCacheService().getCacheStats(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[850],
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final stats = snapshot.data!;
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[850],
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Informações do Cache',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildInfoRow(
+                'Entradas em Memória',
+                stats['memoryEntries']?.toString() ?? '0',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                'Arquivos no Disco',
+                stats['diskFiles']?.toString() ?? '0',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                'Tamanho do Cache',
+                '${stats['diskSizeMB'] ?? '0'} MB',
+              ),
+              const SizedBox(height: 8),
+              _buildInfoRow('Status', 'Ativo'),
+            ],
+          ),
+        );
+      },
     );
   }
 

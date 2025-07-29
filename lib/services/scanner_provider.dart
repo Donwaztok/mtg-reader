@@ -516,9 +516,12 @@ class ScannerProvider extends ChangeNotifier {
     }
 
     // Campos opcionais (peso menor)
-    if (info.containsKey('name') && info['name']!.isNotEmpty) score += 1;
-    if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty)
+    if (info.containsKey('name') && info['name']!.isNotEmpty) {
       score += 1;
+    }
+    if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty) {
+      score += 1;
+    }
 
     return score;
   }

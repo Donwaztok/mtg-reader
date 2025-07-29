@@ -4,15 +4,18 @@ import 'package:http/http.dart' as http;
 
 import '../models/mtg_card.dart';
 import '../utils/logger.dart';
+import 'card_cache_service.dart';
 import 'simple_search_service.dart';
 
 class ScryfallService {
   static const String _baseUrl = 'https://api.scryfall.com';
   final SimpleSearchService _searchService = SimpleSearchService();
+  final CardCacheService _cacheService = CardCacheService();
 
   /// Inicializa o serviço
   Future<void> initialize() async {
     await _searchService.initialize();
+    await _cacheService.initialize();
   }
 
   /// Busca uma carta usando busca fuzzy (aproximada)
@@ -633,6 +636,32 @@ class ScryfallService {
         '🔄 [ScryfallService] Iniciando busca de TODAS as prints para: $cardName',
       );
 
+      // Verificar cache primeiro
+      final cachedCards = await _cacheService.getCachedCards(cardName);
+      if (cachedCards != null) {
+        Logger.debug(
+          '⚡ [ScryfallService] Usando cache para: $cardName (${cachedCards.length} prints)',
+        );
+
+        // Verificar se precisa de atualização (sem remover cache atual)
+        final shouldCheck = await _cacheService.shouldCheckForUpdates(cardName);
+        if (shouldCheck) {
+          Logger.debug(
+            '🔍 [ScryfallService] Verificando atualizações para: $cardName',
+          );
+
+          // Fazer busca em background para verificar melhorias
+          _checkForUpdatesInBackground(cardName, onProgress);
+        }
+
+        // Simular progresso para manter consistência da UI
+        if (onProgress != null) {
+          onProgress(1, 1, cachedCards.length);
+        }
+
+        return cachedCards;
+      }
+
       String cleanName = _cleanCardName(cardName);
       List<MTGCard> allPrints = [];
       int currentPage = 1;
@@ -731,6 +760,11 @@ class ScryfallService {
           }
         }
 
+        // Salvar no cache usando a nova estratégia
+        if (allPrints.isNotEmpty) {
+          await _cacheService.updateCacheWithNewData(cardName, allPrints);
+        }
+
         Logger.debug(
           '✅ [ScryfallService] Carregamento concluído: ${allPrints.length} prints encontradas',
         );
@@ -744,6 +778,40 @@ class ScryfallService {
     } catch (e) {
       Logger.debug('💥 [ScryfallService] Erro ao buscar todas as prints: $e');
       return [];
+    }
+  }
+
+  /// Verifica atualizações em background sem bloquear a UI
+  Future<void> _checkForUpdatesInBackground(
+    String cardName,
+    Function(int currentPage, int totalPages, int totalCards)? onProgress,
+  ) async {
+    try {
+      Logger.debug(
+        '🔄 [ScryfallService] Verificando atualizações em background para: $cardName',
+      );
+
+      // Fazer busca completa para verificar se há melhorias
+      final newCards = await getAllPrintsForCard(cardName, onProgress: null);
+
+      if (newCards.isNotEmpty) {
+        final currentCards = await _cacheService.getCachedCards(cardName);
+
+        // Se há mais prints ou dados diferentes, atualizar cache
+        if (currentCards == null || newCards.length > currentCards.length) {
+          Logger.debug(
+            '🔄 [ScryfallService] Atualizando cache com ${newCards.length} prints (era ${currentCards?.length ?? 0})',
+          );
+          await _cacheService.updateCacheWithNewData(cardName, newCards);
+        } else {
+          // Marcar que foi verificado mesmo sem atualização
+          await _cacheService.markUpdateCheck(cardName);
+        }
+      }
+    } catch (e) {
+      Logger.debug(
+        '❌ [ScryfallService] Erro ao verificar atualizações em background: $e',
+      );
     }
   }
 }
