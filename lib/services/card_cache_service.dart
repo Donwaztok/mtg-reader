@@ -24,13 +24,12 @@ class CardCacheService {
   final Map<String, DateTime> _cacheTimestamps = {};
 
   // Configurações do cache
-  static const int _maxMemoryCacheSize = 100; // Máximo de 100 cartas em memória
   static const Duration _cacheExpiration = Duration(
     days: 30,
-  ); // Cache expira em 30 dias (aumentado)
+  ); // Cache expira em 30 dias
   static const Duration _imageCacheExpiration = Duration(
     days: 90,
-  ); // Imagens expiram em 90 dias (aumentado)
+  ); // Imagens expiram em 90 dias
   static const Duration _updateCheckInterval = Duration(
     days: 3,
   ); // Verificar atualizações a cada 3 dias
@@ -96,9 +95,6 @@ class CardCacheService {
 
       // Salvar no disco
       await _saveToDisk(cacheKey, cards);
-
-      // Limpar cache se necessário
-      _cleanupMemoryCache();
 
       Logger.debug(
         '💾 [CardCacheService] Cacheado ${cards.length} prints para: $cardName',
@@ -225,26 +221,6 @@ class CardCacheService {
     } catch (e) {
       return false;
     }
-  }
-
-  /// Limpa cache em memória se necessário
-  void _cleanupMemoryCache() {
-    if (_memoryCache.length <= _maxMemoryCacheSize) return;
-
-    // Remover entradas mais antigas
-    final sortedEntries = _cacheTimestamps.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-
-    final entriesToRemove = _memoryCache.length - _maxMemoryCacheSize;
-    for (int i = 0; i < entriesToRemove; i++) {
-      final key = sortedEntries[i].key;
-      _memoryCache.remove(key);
-      _cacheTimestamps.remove(key);
-    }
-
-    Logger.debug(
-      '🧹 [CardCacheService] Cache limpo. Entradas restantes: ${_memoryCache.length}',
-    );
   }
 
   /// Limpa todo o cache
@@ -419,7 +395,6 @@ class CardCacheService {
     String? language,
   }) async {
     try {
-      final cacheKey = _generateCacheKey(cardName, language: language);
       final currentCards = await getCachedCards(cardName, language: language);
 
       if (currentCards == null || currentCards.isEmpty) {

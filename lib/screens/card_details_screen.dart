@@ -1297,20 +1297,23 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    // Capturar o messenger antes de qualquer operação async
+                    final messenger = ScaffoldMessenger.of(context);
+
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Limpar Cache'),
                         content: const Text(
-                          'Tem certeza que deseja limpar todo o cache? Isso removerá todas as cartas cacheadas.',
+                          'Tem certeza que deseja limpar todo o cache? Esta ação não pode ser desfeita.',
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context, false),
+                            onPressed: () => Navigator.of(context).pop(false),
                             child: const Text('Cancelar'),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(context, true),
+                            onPressed: () => Navigator.of(context).pop(true),
                             child: const Text('Limpar'),
                           ),
                         ],
@@ -1320,7 +1323,6 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
                     if (confirmed == true) {
                       await CardCacheService().clearCache();
                       if (mounted) {
-                        final messenger = ScaffoldMessenger.of(context);
                         messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Cache limpo com sucesso!'),

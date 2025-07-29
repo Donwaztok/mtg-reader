@@ -664,7 +664,6 @@ class ScryfallService {
 
       String cleanName = _cleanCardName(cardName);
       List<MTGCard> allPrints = [];
-      int currentPage = 1;
       int totalCards = 0;
       int totalPages = 0;
 
@@ -703,7 +702,7 @@ class ScryfallService {
 
         // Notificar progresso da primeira página
         if (onProgress != null) {
-          onProgress(currentPage, totalPages, totalCards);
+          onProgress(1, totalPages, totalCards);
         }
 
         // Carregar páginas adicionais se necessário
@@ -736,11 +735,9 @@ class ScryfallService {
                   }
                 }
 
-                currentPage = page;
-
                 // Notificar progresso
                 if (onProgress != null) {
-                  onProgress(currentPage, totalPages, totalCards);
+                  onProgress(page, totalPages, totalCards);
                 }
 
                 // Pequena pausa para não sobrecarregar a API
@@ -820,7 +817,6 @@ class ScryfallService {
     try {
       String cleanName = _cleanCardName(cardName);
       List<MTGCard> allPrints = [];
-      int currentPage = 1;
       int totalCards = 0;
       int totalPages = 0;
 

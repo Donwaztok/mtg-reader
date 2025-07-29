@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/logger.dart';
+
 /// Widget para renderizar ícones oficiais do Magic: The Gathering
 class MagicIcons {
   // Cache de ícones oficiais
@@ -90,11 +92,11 @@ class MagicIcons {
     try {
       // Verificar cache primeiro
       if (_svgCache.containsKey(symbol)) {
-        print('SVG em cache: $symbol');
+        Logger.debug('SVG em cache: $symbol');
         return _svgCache[symbol];
       }
 
-      print('Buscando ícone oficial: $symbol');
+      Logger.debug('Buscando ícone oficial: $symbol');
 
       // Buscar símbolos disponíveis
       final response = await http.get(Uri.parse(_iconBaseUrl));
@@ -103,37 +105,37 @@ class MagicIcons {
         final data = json.decode(response.body);
         final symbols = data['data'] as List;
 
-        print('Total de símbolos disponíveis: ${symbols.length}');
+        Logger.debug('Total de símbolos disponíveis: ${symbols.length}');
 
         // Encontrar o símbolo correto
         for (final symbolData in symbols) {
           final availableSymbol = symbolData['symbol'] as String;
 
           if (availableSymbol == symbol) {
-            print('Símbolo encontrado: $symbol');
+            Logger.debug('Símbolo encontrado: $symbol');
 
             // Verificar se tem SVG
             if (symbolData.containsKey('svg_uri')) {
               final svgUrl = symbolData['svg_uri'] as String;
-              print('URL do SVG: $svgUrl');
+              Logger.debug('URL do SVG: $svgUrl');
 
               // Armazenar no cache
               _svgCache[symbol] = svgUrl;
               return svgUrl;
             } else {
-              print('Símbolo não tem SVG: $symbol');
+              Logger.debug('Símbolo não tem SVG: $symbol');
             }
             break;
           }
         }
 
-        print('Símbolo não encontrado na API: $symbol');
+        Logger.debug('Símbolo não encontrado na API: $symbol');
       } else {
-        print('Erro na API do Scryfall: ${response.statusCode}');
-        print('Response: ${response.body}');
+        Logger.debug('Erro na API do Scryfall: ${response.statusCode}');
+        Logger.debug('Response: ${response.body}');
       }
     } catch (e) {
-      print('Erro ao buscar ícone oficial: $e');
+      Logger.debug('Erro ao buscar ícone oficial: $e');
     }
 
     return null;
