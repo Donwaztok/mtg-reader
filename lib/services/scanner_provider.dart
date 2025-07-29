@@ -4,11 +4,54 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../models/mtg_card.dart';
-import '../screens/card_details_screen.dart';
 import '../utils/logger.dart';
 import 'camera_service.dart';
 import 'ocr_service.dart';
 import 'scryfall_service.dart';
+
+// Mapeamento de códigos de idioma para nomes
+const Map<String, String> languageCodeToName = {
+  'en': 'English',
+  'es': 'Spanish',
+  'fr': 'French',
+  'de': 'German',
+  'it': 'Italian',
+  'pt': 'Portuguese',
+  'ja': 'Japanese',
+  'ko': 'Korean',
+  'ru': 'Russian',
+  'zhs': 'Simplified Chinese',
+  'zht': 'Traditional Chinese',
+  'he': 'Hebrew',
+  'la': 'Latin',
+  'grc': 'Ancient Greek',
+  'ar': 'Arabic',
+  'sa': 'Sanskrit',
+  'ph': 'Phyrexian',
+  'qya': 'Quenya',
+};
+
+// Mapeamento de nomes em inglês para português
+const Map<String, String> languageLabels = {
+  'English': 'Inglês',
+  'Portuguese': 'Português',
+  'Spanish': 'Espanhol',
+  'French': 'Francês',
+  'German': 'Alemão',
+  'Italian': 'Italiano',
+  'Japanese': 'Japonês',
+  'Korean': 'Coreano',
+  'Russian': 'Russo',
+  'Simplified Chinese': 'Chinês Simplificado',
+  'Traditional Chinese': 'Chinês Tradicional',
+  'Hebrew': 'Hebraico',
+  'Latin': 'Latim',
+  'Ancient Greek': 'Grego Antigo',
+  'Arabic': 'Árabe',
+  'Sanskrit': 'Sânscrito',
+  'Phyrexian': 'Phyrexiano',
+  'Quenya': 'Quenya',
+};
 
 class ScannerProvider extends ChangeNotifier {
   final CameraService _cameraService = CameraService();
@@ -123,30 +166,45 @@ class ScannerProvider extends ChangeNotifier {
       Logger.debug('Type Line: ${_extractedInfo['typeLine']}');
       Logger.debug('=====================================');
 
+      // Verifica se tem as informações obrigatórias para busca
+      if (!_hasRequiredInfo(_extractedInfo)) {
+        Logger.debug(
+          '❌ Informações obrigatórias não encontradas. Não será feita busca.',
+        );
+        _errorMessage =
+            'Não foi possível detectar número, edição e linguagem da carta. Verifique se a carta está bem posicionada e iluminada.';
+        _isScanning = false;
+        _isProcessing = false;
+        notifyListeners();
+        return;
+      }
+
       // Processar informações de linguagem e edição para seleção automática
       _processDetectedLanguageAndEdition();
 
-      // Estratégia de busca otimizada usando endpoint específico
-      String? setCode = _extractedInfo['setCode'];
-      String? collectorNumber = _extractedInfo['collectorNumber'];
+      // Busca usando as informações obrigatórias extraídas
+      String setCode = _extractedInfo['setCode']!;
+      String collectorNumber = _extractedInfo['collectorNumber']!;
+      String language = _extractedInfo['language']!;
       String? cardName = _extractedInfo['name'];
-      String? language = _extractedInfo['language'];
+
+      Logger.debug(
+        '🔍 Iniciando busca com informações obrigatórias: Set=$setCode, Collector=$collectorNumber, Language=$language',
+      );
 
       // Primeira tentativa: busca específica por collector number + set + linguagem
-      if (setCode != null && collectorNumber != null && language != null) {
-        Logger.debug(
-          'Tentando busca específica por collector number com linguagem...',
-        );
-        _scannedCard = await _scryfallService
-            .searchCardByCollectorNumberWithLanguage(
-              setCode,
-              collectorNumber,
-              language,
-            );
-      }
+      Logger.debug(
+        'Tentando busca específica por collector number com linguagem...',
+      );
+      _scannedCard = await _scryfallService
+          .searchCardByCollectorNumberWithLanguage(
+            setCode,
+            collectorNumber,
+            language,
+          );
 
       // Segunda tentativa: busca por collector number + set (sem linguagem)
-      if (_scannedCard == null && setCode != null && collectorNumber != null) {
+      if (_scannedCard == null) {
         Logger.debug('Tentando busca por collector number sem linguagem...');
         _scannedCard = await _scryfallService.searchCardByCollectorNumber(
           setCode,
@@ -166,21 +224,11 @@ class ScannerProvider extends ChangeNotifier {
       }
 
       if (_scannedCard != null) {
-        Logger.debug('Carta encontrada: ${_scannedCard!.name}'); // Debug
+        Logger.debug('✅ Carta encontrada: ${_scannedCard!.name}');
       } else {
-        Logger.debug('Carta não encontrada na base de dados'); // Debug
-        List<String> searchAttempts = [];
-        if (cardName != null) searchAttempts.add('nome: $cardName');
-        if (setCode != null) searchAttempts.add('set: $setCode');
-        if (collectorNumber != null) {
-          searchAttempts.add('collector: $collectorNumber');
-        }
-        if (language != null) {
-          searchAttempts.add('linguagem: $language');
-        }
-
+        Logger.debug('❌ Carta não encontrada na base de dados');
         _errorMessage =
-            'Carta não encontrada com ${searchAttempts.join(', ')}. Verifique se a carta está bem posicionada e iluminada.';
+            'Carta não encontrada com número $collectorNumber, edição $setCode e linguagem $language. Verifique se a carta está bem posicionada e iluminada.';
       }
     } catch (e) {
       _errorMessage = 'Erro ao escanear carta: $e';
@@ -423,6 +471,14 @@ class ScannerProvider extends ChangeNotifier {
           break;
         }
 
+        // Se conseguimos as informações obrigatórias, podemos parar
+        if (_hasRequiredInfo(extractedInfo)) {
+          Logger.debug(
+            '🎯 Tentativa $attempt - Informações obrigatórias encontradas! Parando retry.',
+          );
+          break;
+        }
+
         // Pausa entre tentativas
         if (attempt < maxRetries) {
           await Future.delayed(Duration(milliseconds: 500));
@@ -443,19 +499,38 @@ class ScannerProvider extends ChangeNotifier {
   }
 
   /// Calcula score baseado na quantidade de informações extraídas
+  /// Prioriza os campos obrigatórios: collectorNumber, setCode, language
   int _calculateInfoScore(Map<String, String> info) {
     int score = 0;
 
-    if (info.containsKey('name') && info['name']!.isNotEmpty) score++;
-    if (info.containsKey('setCode') && info['setCode']!.isNotEmpty) score++;
+    // Campos obrigatórios (peso maior)
     if (info.containsKey('collectorNumber') &&
         info['collectorNumber']!.isNotEmpty) {
-      score++;
+      score += 3; // Peso maior para número do coletor
     }
-    if (info.containsKey('language') && info['language']!.isNotEmpty) score++;
-    if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty) score++;
+    if (info.containsKey('setCode') && info['setCode']!.isNotEmpty) {
+      score += 3; // Peso maior para código do set
+    }
+    if (info.containsKey('language') && info['language']!.isNotEmpty) {
+      score += 3; // Peso maior para linguagem
+    }
+
+    // Campos opcionais (peso menor)
+    if (info.containsKey('name') && info['name']!.isNotEmpty) score += 1;
+    if (info.containsKey('typeLine') && info['typeLine']!.isNotEmpty)
+      score += 1;
 
     return score;
+  }
+
+  /// Verifica se tem as informações obrigatórias para busca
+  bool _hasRequiredInfo(Map<String, String> info) {
+    return info.containsKey('collectorNumber') &&
+        info['collectorNumber']!.isNotEmpty &&
+        info.containsKey('setCode') &&
+        info['setCode']!.isNotEmpty &&
+        info.containsKey('language') &&
+        info['language']!.isNotEmpty;
   }
 
   /// Processa as informações de linguagem e edição detectadas para seleção automática

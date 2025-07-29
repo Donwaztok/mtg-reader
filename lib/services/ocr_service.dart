@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
+
 import '../utils/logger.dart';
 
 class OCRService {
@@ -40,7 +41,9 @@ class OCRService {
 
       // Pré-processa a imagem antes do OCR
       final processedImageBytes = await preprocessImage(imageBytes);
-      Logger.debug('Imagem pré-processada: ${processedImageBytes.length} bytes');
+      Logger.debug(
+        'Imagem pré-processada: ${processedImageBytes.length} bytes',
+      );
 
       // Tenta primeiro com o arquivo temporário
       try {
@@ -121,6 +124,7 @@ class OCRService {
     // Lista para armazenar candidatos a nome de carta
     List<String> nameCandidates = [];
 
+    // Primeira passada: procura especificamente pelos campos obrigatórios
     for (String block in textBlocks) {
       String cleanText = block.trim();
 
@@ -128,27 +132,6 @@ class OCRService {
       cleanText = _cleanText(cleanText);
 
       if (cleanText.isEmpty) continue;
-
-      // Tenta extrair custo de mana
-      if (_isManaCost(cleanText)) {
-        cardInfo['manaCost'] = cleanText;
-        Logger.debug('Custo de mana encontrado: $cleanText'); // Debug
-        continue;
-      }
-
-      // Tenta extrair linha de tipo
-      if (_isTypeLine(cleanText)) {
-        cardInfo['typeLine'] = cleanText;
-        Logger.debug('Linha de tipo encontrada: $cleanText'); // Debug
-        continue;
-      }
-
-      // Tenta extrair poder/resistência
-      if (_isPowerToughness(cleanText)) {
-        cardInfo['powerToughness'] = cleanText;
-        Logger.debug('Poder/Resistência encontrado: $cleanText'); // Debug
-        continue;
-      }
 
       // Tenta extrair informações completas de collector/set/language de um texto
       Map<String, String>? extractedInfo = _extractCompleteInfo(cleanText);
@@ -209,6 +192,42 @@ class OCRService {
       if (_isSetCode(cleanText)) {
         cardInfo['setCode'] = cleanText;
         Logger.debug('Código do set encontrado: $cleanText'); // Debug
+        continue;
+      }
+
+      // Tenta extrair linguagem
+      if (_isLanguageCode(cleanText)) {
+        cardInfo['language'] = cleanText;
+        Logger.debug('Código de linguagem encontrado: $cleanText'); // Debug
+        continue;
+      }
+    }
+
+    // Segunda passada: procura por outros campos se ainda não encontrou os obrigatórios
+    for (String block in textBlocks) {
+      String cleanText = block.trim();
+      cleanText = _cleanText(cleanText);
+
+      if (cleanText.isEmpty) continue;
+
+      // Tenta extrair custo de mana
+      if (_isManaCost(cleanText)) {
+        cardInfo['manaCost'] = cleanText;
+        Logger.debug('Custo de mana encontrado: $cleanText'); // Debug
+        continue;
+      }
+
+      // Tenta extrair linha de tipo
+      if (_isTypeLine(cleanText)) {
+        cardInfo['typeLine'] = cleanText;
+        Logger.debug('Linha de tipo encontrada: $cleanText'); // Debug
+        continue;
+      }
+
+      // Tenta extrair poder/resistência
+      if (_isPowerToughness(cleanText)) {
+        cardInfo['powerToughness'] = cleanText;
+        Logger.debug('Poder/Resistência encontrado: $cleanText'); // Debug
         continue;
       }
 
@@ -510,6 +529,29 @@ class OCRService {
     return setCodeRegex.hasMatch(text.trim());
   }
 
+  /// Verifica se o texto parece ser um código de idioma
+  bool _isLanguageCode(String text) {
+    // Códigos de idioma são geralmente 2 letras maiúsculas
+    RegExp langCodeRegex = RegExp(r'^[A-Z]{2}$');
+    if (langCodeRegex.hasMatch(text.trim())) {
+      // Lista de códigos de idioma válidos do MTG
+      List<String> validLanguages = [
+        'PT',
+        'EN',
+        'ES',
+        'FR',
+        'DE',
+        'IT',
+        'JA',
+        'KO',
+        'RU',
+        'ZH',
+      ];
+      return validLanguages.contains(text.trim());
+    }
+    return false;
+  }
+
   /// Melhora o nome da carta com correções comuns do OCR
   String _improveCardName(String cardName) {
     String improved = cardName;
@@ -806,23 +848,41 @@ class OCRService {
     RegExp collectorPattern3 = RegExp(r'^(\d+)\s+\d+\s+[A-Z]');
     var collectorMatch3 = collectorPattern3.firstMatch(text);
 
+    // Padrão 4: 026/271 (formato: número/número sem letra)
+    RegExp collectorPattern4 = RegExp(r'^(\d+)/(\d+)');
+    var collectorMatch4 = collectorPattern4.firstMatch(text);
+
     if (collectorMatch1 != null) {
       String? collectorNumber = collectorMatch1.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        Logger.debug('📊 Collector Number extraído (padrão 1): $collectorNumber');
+        Logger.debug(
+          '📊 Collector Number extraído (padrão 1): $collectorNumber',
+        );
       }
     } else if (collectorMatch2 != null) {
       String? collectorNumber = collectorMatch2.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        Logger.debug('📊 Collector Number extraído (padrão 2): $collectorNumber');
+        Logger.debug(
+          '📊 Collector Number extraído (padrão 2): $collectorNumber',
+        );
       }
     } else if (collectorMatch3 != null) {
       String? collectorNumber = collectorMatch3.group(1);
       if (collectorNumber != null) {
         result['collectorNumber'] = collectorNumber;
-        Logger.debug('📊 Collector Number extraído (padrão 3): $collectorNumber');
+        Logger.debug(
+          '📊 Collector Number extraído (padrão 3): $collectorNumber',
+        );
+      }
+    } else if (collectorMatch4 != null) {
+      String? collectorNumber = collectorMatch4.group(1);
+      if (collectorNumber != null) {
+        result['collectorNumber'] = collectorNumber;
+        Logger.debug(
+          '📊 Collector Number extraído (padrão 4): $collectorNumber',
+        );
       }
     } else {
       Logger.debug('❌ Collector Number não encontrado nos padrões esperados');
