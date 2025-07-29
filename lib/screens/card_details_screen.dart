@@ -193,7 +193,7 @@ class _CardDetailsScreenState extends State<CardDetailsScreen> {
               ),
             );
 
-            // Mostrar mensagem de verificação em background
+            // Mostrar mensagem de verificação em background (apenas visual)
             Future.delayed(const Duration(seconds: 3), () {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(

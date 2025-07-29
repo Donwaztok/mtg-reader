@@ -792,7 +792,7 @@ class ScryfallService {
       );
 
       // Fazer busca completa para verificar se há melhorias
-      final newCards = await getAllPrintsForCard(cardName, onProgress: null);
+      final newCards = await _fetchAllPrintsFromAPI(cardName);
 
       if (newCards.isNotEmpty) {
         final currentCards = await _cacheService.getCachedCards(cardName);
@@ -812,6 +812,113 @@ class ScryfallService {
       Logger.debug(
         '❌ [ScryfallService] Erro ao verificar atualizações em background: $e',
       );
+    }
+  }
+
+  /// Busca todas as prints da API (sem cache)
+  Future<List<MTGCard>> _fetchAllPrintsFromAPI(String cardName) async {
+    try {
+      String cleanName = _cleanCardName(cardName);
+      List<MTGCard> allPrints = [];
+      int currentPage = 1;
+      int totalCards = 0;
+      int totalPages = 0;
+
+      // Primeira requisição para obter informações de paginação
+      final firstResponse = await http.get(
+        Uri.parse(
+          '$_baseUrl/cards/search?q=!"$cleanName"&include_multilingual=true&unique=prints&page=1',
+        ),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (firstResponse.statusCode == 200) {
+        final jsonData = json.decode(firstResponse.body);
+        totalCards = jsonData['total_cards'] ?? 0;
+        final hasMore = jsonData['has_more'] ?? false;
+
+        // Calcular total de páginas (175 cartas por página)
+        totalPages = (totalCards / 175).ceil();
+
+        Logger.debug(
+          '📊 [ScryfallService] Background - Total de cartas: $totalCards, Páginas: $totalPages',
+        );
+
+        // Processar primeira página
+        final List<dynamic> firstPageData = jsonData['data'] ?? [];
+        for (var cardData in firstPageData) {
+          try {
+            final card = MTGCard.fromJson(cardData);
+            allPrints.add(card);
+          } catch (e) {
+            Logger.debug(
+              '❌ [ScryfallService] Erro ao processar carta da primeira página (background): $e',
+            );
+          }
+        }
+
+        // Carregar páginas adicionais se necessário
+        if (hasMore && totalPages > 1) {
+          for (int page = 2; page <= totalPages; page++) {
+            try {
+              Logger.debug(
+                '📄 [ScryfallService] Background - Carregando página $page de $totalPages',
+              );
+
+              final response = await http.get(
+                Uri.parse(
+                  '$_baseUrl/cards/search?q=!"$cleanName"&include_multilingual=true&unique=prints&page=$page',
+                ),
+                headers: {'Content-Type': 'application/json'},
+              );
+
+              if (response.statusCode == 200) {
+                final pageData = json.decode(response.body);
+                final List<dynamic> cardsData = pageData['data'] ?? [];
+
+                for (var cardData in cardsData) {
+                  try {
+                    final card = MTGCard.fromJson(cardData);
+                    allPrints.add(card);
+                  } catch (e) {
+                    Logger.debug(
+                      '❌ [ScryfallService] Erro ao processar carta da página $page (background): $e',
+                    );
+                  }
+                }
+
+                // Pequena pausa para não sobrecarregar a API
+                await Future.delayed(const Duration(milliseconds: 100));
+              } else {
+                Logger.debug(
+                  '❌ [ScryfallService] Erro ao carregar página $page (background): ${response.statusCode}',
+                );
+                break;
+              }
+            } catch (e) {
+              Logger.debug(
+                '❌ [ScryfallService] Erro ao carregar página $page (background): $e',
+              );
+              break;
+            }
+          }
+        }
+
+        Logger.debug(
+          '✅ [ScryfallService] Background - Carregamento concluído: ${allPrints.length} prints encontradas',
+        );
+        return allPrints;
+      } else {
+        Logger.debug(
+          '❌ [ScryfallService] Erro na primeira requisição (background): ${firstResponse.statusCode}',
+        );
+        return [];
+      }
+    } catch (e) {
+      Logger.debug(
+        '💥 [ScryfallService] Erro ao buscar prints da API (background): $e',
+      );
+      return [];
     }
   }
 }
